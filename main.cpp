@@ -77,7 +77,7 @@ float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is hor
 double mouseStartX, mouseStartY; // for camera orbit calculations
 
 // A rectangular prism of length/width 2*LINE_RADIUS and height 2 centered on the origin
-GLfloat board_background[12*24];
+GLfloat board_vertices[12*24];
 GLuint board_indices[12*36];
 static const GLfloat line_vertices[] = {
 	-LINE_RADIUS,  1.0f, LINE_RADIUS, // top left		0
@@ -164,9 +164,9 @@ void generate_line_group(int offset, int rx, int ry, int rz) {
 	for(int dx = -1; dx <= 1; dx += 2) {
 		for(int dz = -1; dz <= 1; dz += 2) {
 			for(int i = 0; i < 24; i += 3) {
-				board_background[currLine * 24 + i + rx] = line_vertices[i] + SCALE * dx;
-				board_background[currLine * 24 + i + ry] = line_vertices[i + 1];
-				board_background[currLine * 24 + i + rz] = line_vertices[i + 2] + SCALE * dz;
+				board_vertices[currLine * 24 + i + rx] = line_vertices[i] + SCALE * dx;
+				board_vertices[currLine * 24 + i + ry] = line_vertices[i + 1];
+				board_vertices[currLine * 24 + i + rz] = line_vertices[i + 2] + SCALE * dz;
 			}
 
 			for(int i = 0; i < 36; ++i) {
@@ -371,7 +371,7 @@ bool init() {
 
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(board_background), board_background, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(board_vertices), board_vertices, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
 
 	glGenBuffers(1, &EBO);
@@ -391,7 +391,7 @@ bool init() {
 	mvpLoc = glGetUniformLocation(shaderProgram, "mvp");
 	rgbLoc = glGetUniformLocation(shaderProgram, "rgb");
 
-	// Generate mvp
+	// Generate mvp and camera
 	Projection = glm::perspective(glm::radians(45.0f), float(SCREEN_WIDTH)/float(SCREEN_HEIGHT), 0.1f, 100.0f);
 	theta = M_PI/2;
 	phi = 0;
