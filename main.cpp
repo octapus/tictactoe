@@ -10,8 +10,8 @@
 #include<unordered_map>
 #include "board.h"
 
-#define SCREEN_WIDTH 1600
-#define SCREEN_HEIGHT 1600
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 800
 #define LINE_RADIUS 0.01f
 #define SCALE 0.33333333333
 #define PADDING 0.0625
@@ -63,14 +63,17 @@ bool won;
 std::unordered_map<int, std::tuple<int, int, int>> keybinds;
 
 GLFWwindow *window;
-unsigned int VAO, VBO, EBO, X_VAO, X_VBO, X_EBO, O_VAO, O_VBO, O_EBO, TET_VAO, TET_VBO, TET_EBO;
+unsigned int VAO, VBO, EBO; // board
+unsigned int X_VAO, X_VBO, X_EBO; // cross and x
+unsigned int O_VAO, O_VBO, O_EBO; // o
+unsigned int TET_VAO, TET_VBO, TET_EBO; // tetrahedrons
 GLuint shaderProgram;
 
 glm::mat4 Model, View, Projection, mvp;
 unsigned int mvpLoc, rgbLoc;
 
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
-double mouseStartX, mouseStartY;
+double mouseStartX, mouseStartY; // for camera orbit calculations
 
 GLfloat board_background[12*24];
 GLuint board_indices[12*36];
@@ -85,7 +88,6 @@ static const GLfloat board_line[] = {
 	-LINE_RADIUS, -1.0f, -LINE_RADIUS, // bottom left	6
 	LINE_RADIUS, -1.0f, -LINE_RADIUS // bottom right	7
 };
-// TODO: should change to triangle strip
 static const GLuint line_indices[] {
 	1, 0, 3, 0, 2, 3, // front
 	7, 4, 5, 7, 6, 4, // back
@@ -182,6 +184,7 @@ void generate_board_bg() {
 	generate_line_group(2, 1, 2, 0);
 }
 
+// use 3 rotations of the line to create a cross
 void generate_x_polygon() {
 	glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1, SCALE - PADDING, 1));
 	glm::mat4 rotations[3];
@@ -207,9 +210,11 @@ void generate_x_polygon() {
 		}
 	}
 
-	x_rotation = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1, 1, 1)); // TODO: this sucks
+	// Creates a rotation matrix to convert the cross to an X, or in this case, a cursed star thing.
+	x_rotation = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1, 1, 1));
 }
 
+// updates the View matrix to the current camera position. Does not update mvp.
 void update_view() {
 	float cameraX = radius * cos(theta) * cos(phi);
 	float cameraY = radius * sin(phi);
@@ -221,11 +226,13 @@ void update_view() {
 		);
 }
 
+// updates the mvp matrix and sends it to the gpu.
 void update_mvp() {
 	mvp = Projection * View * Model;
 	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 }
 
+// updates the rgb vector and sends it to the gpu.
 void update_rgb(float r, float g, float b) {
 	glUniform3f(rgbLoc, r, g, b);
 }
@@ -337,7 +344,7 @@ bool init() {
 	mvpLoc = glGetUniformLocation(shaderProgram, "mvp");
 	rgbLoc = glGetUniformLocation(shaderProgram, "rgb");
 
-	// Generate mvp
+	// Generate mvp and camera
 	Projection = glm::perspective(glm::radians(45.0f), float(SCREEN_WIDTH)/float(SCREEN_HEIGHT), 0.1f, 100.0f);
 	theta = M_PI/2;
 	phi = 0;
@@ -374,7 +381,9 @@ void close() {
 	glfwTerminate();
 }
 
+// draws the moves of a specific player
 void draw_specific_moves(CellState player) {
+	// select correct VAO
 	switch(player) {
 		case X:
 			glBindVertexArray(X_VAO);
@@ -392,18 +401,23 @@ void draw_specific_moves(CellState player) {
 			return;
 			break;
 	}
+
+	// iterate through board with w (colors) last
 	for(int lx = 0; lx < 3; ++lx) {
 		for(int ly = 0; ly < 3; ++ly) {
 			for(int lz = 0; lz < 3; ++lz) {
+				// check all w for the move in order to set the right color blend
 				bool r = (board.get(lx, ly, lz, 0) == player);
 				bool g = (board.get(lx, ly, lz, 1) == player);
 				bool b = (board.get(lx, ly, lz, 2) == player);
 
 				if(r || g || b) {
 					update_rgb(r, g, b);
+
 					Model = glm::translate(glm::mat4(1.0f), glm::vec3(2*SCALE*(lx-1), -2*SCALE*(ly-1), 2*SCALE*(lz-1)));
 					if(player == X) Model = Model * x_rotation;
 					update_mvp();
+
 					switch(player) {
 						case X:
 							glDrawElements(GL_TRIANGLES, 3*36, GL_UNSIGNED_INT, 0);
@@ -453,17 +467,12 @@ void draw_board_background() {
 	}
 	glDrawElements(GL_TRIANGLES, 12*36, GL_UNSIGNED_INT, 0);
 }
+
 void draw_board() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	draw_board_background();
 	draw_moves();
 	glfwSwapBuffers(window);
-}
-
-void window_size_callback(GLFWwindow* window, int width, int height) {
-	Projection = glm::perspective(glm::radians(45.0f), float(width)/float(height), 0.1f, 100.0f);
-	update_mvp();
-	std::cout << width << " " << height << std::endl;
 }
 
 void build_keybinds() {
@@ -586,7 +595,6 @@ int main() {
 		glfwSetCursorPosCallback(window, cursor_pos_callback);
 		glfwSetMouseButtonCallback(window, mouse_button_callback);
 		glfwSetScrollCallback(window, scroll_callback);
-		glfwSetWindowSizeCallback(window, window_size_callback);
 
 		// Main loop
 		quit = false;
