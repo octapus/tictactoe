@@ -21,6 +21,7 @@
 #define RESTART GLFW_KEY_DELETE
 #define RESET_CAMERA GLFW_KEY_ENTER
 
+// back/middle/front (front is facing screen) up/center/down left/middle/right
 #define BUL GLFW_KEY_Q
 #define BUU GLFW_KEY_W
 #define BUR GLFW_KEY_E
@@ -41,22 +42,21 @@
 #define MDD GLFW_KEY_B
 #define MDR GLFW_KEY_N
 
-#define TUL GLFW_KEY_U
-#define TUU GLFW_KEY_I
-#define TUR GLFW_KEY_O
-#define TCL GLFW_KEY_J
-#define TCC GLFW_KEY_K
-#define TCR GLFW_KEY_L
-#define TDL GLFW_KEY_M
-#define TDD GLFW_KEY_COMMA
-#define TDR GLFW_KEY_PERIOD
+#define FUL GLFW_KEY_U
+#define FUU GLFW_KEY_I
+#define FUR GLFW_KEY_O
+#define FCL GLFW_KEY_J
+#define FCC GLFW_KEY_K
+#define FCR GLFW_KEY_L
+#define FDL GLFW_KEY_M
+#define FDD GLFW_KEY_COMMA
+#define FDR GLFW_KEY_PERIOD
 
 #define W_UP GLFW_KEY_SPACE
 #define W_DOWN GLFW_KEY_LEFT_SHIFT
 
 Board board;
 CellState turn;
-int z;
 int w;
 bool quit;
 bool won;
@@ -75,9 +75,8 @@ unsigned int mvpLoc, rgbLoc;
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
 double mouseStartX, mouseStartY; // for camera orbit calculations
 
-GLfloat board_background[12*24];
-GLuint board_indices[12*36];
-static const GLfloat board_line[] = {
+// A rectangular prism of length/width 2*LINE_RADIUS and height 2 centered on the origin
+static const GLfloat line_vertices[] = {
 	-LINE_RADIUS,  1.0f, LINE_RADIUS, // top left		0
 	LINE_RADIUS,  1.0f, LINE_RADIUS, // top right		1
 	-LINE_RADIUS, -1.0f, LINE_RADIUS, // bottom left	2
@@ -97,6 +96,13 @@ static const GLuint line_indices[] {
 	3, 2, 7, 2, 6, 7 // bottom
 };
 
+GLfloat board_vertices[12*24];
+GLuint board_indices[12*36];
+
+GLfloat x_vertices[3*24];
+GLuint x_indices[3*36];
+glm::mat4 x_rotation;
+
 // from wikipedia
 static const GLfloat tet_a = 1 * (SCALE - PADDING) - PADDING;
 static const GLfloat tet_b = 1/3.0 * (SCALE - PADDING) + PADDING;
@@ -114,7 +120,7 @@ static const GLuint tetrahedron_indices[] = {
 	0, 1, 2, 3, 0, 1
 };
 
-// Stolen code
+// Values stolen off the internet
 static const GLfloat icos_x = .525731112119133606f * (SCALE - 2 *PADDING);
 static const GLfloat icos_z = .850650808352039932f * (SCALE - 2 * PADDING);
 static const GLfloat icos_n = 0.f;
@@ -156,19 +162,15 @@ static const GLuint icosahedron_indicies[] = {
 };
 
 
-GLfloat x_vertices[3*24];
-GLuint x_indices[3*36];
-glm::mat4 x_rotation;
-
-// generates a set of 4 parallel lines for board creation
+// use 4 translations of the line to make a section of the board. Takes in rx, ry, and rz for rotation.
 void generate_line_group(int offset, int rx, int ry, int rz) {
 	int currLine = offset * 4;
 	for(int dx = -1; dx <= 1; dx += 2) {
 		for(int dz = -1; dz <= 1; dz += 2) {
 			for(int i = 0; i < 24; i += 3) {
-				board_background[currLine * 24 + i + rx] = board_line[i] + SCALE * dx;
-				board_background[currLine * 24 + i + ry] = board_line[i + 1];
-				board_background[currLine * 24 + i + rz] = board_line[i + 2] + SCALE * dz;
+				board_vertices[currLine * 24 + i + rx] = line_vertices[i] + SCALE * dx;
+				board_vertices[currLine * 24 + i + ry] = line_vertices[i + 1];
+				board_vertices[currLine * 24 + i + rz] = line_vertices[i + 2] + SCALE * dz;
 			}
 
 			for(int i = 0; i < 36; ++i) {
@@ -194,7 +196,7 @@ void generate_x_polygon() {
 
 	// generate vertices
 	for(int i = 0; i < 24; i += 3) {
-		glm::vec4 in = scale * glm::vec4(board_line[i], board_line[i + 1], board_line[i + 2], 1.0);
+		glm::vec4 in = scale * glm::vec4(line_vertices[i], line_vertices[i + 1], line_vertices[i + 2], 1.0);
 		for(int bar = 0; bar < 3; ++bar) {
 			glm::vec4 out = rotations[bar] * in;
 			x_vertices[bar * 24 + i + 0] = out.x;
@@ -211,6 +213,7 @@ void generate_x_polygon() {
 	}
 
 	// Creates a rotation matrix to convert the cross to an X, or in this case, a cursed star thing.
+	// TODO: May change x to be an entirely different object than cross.
 	x_rotation = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1, 1, 1));
 }
 
@@ -324,7 +327,7 @@ bool init() {
 
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(board_background), board_background, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(board_vertices), board_vertices, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
 
 	glGenBuffers(1, &EBO);
@@ -497,15 +500,15 @@ void build_keybinds() {
 	keybinds[MDD] = std::make_tuple(1, 2, 1);
 	keybinds[MDR] = std::make_tuple(2, 2, 1);
 
-	keybinds[TUL] = std::make_tuple(0, 0, 2);
-	keybinds[TUU] = std::make_tuple(1, 0, 2);
-	keybinds[TUR] = std::make_tuple(2, 0, 2);
-	keybinds[TCL] = std::make_tuple(0, 1, 2);
-	keybinds[TCC] = std::make_tuple(1, 1, 2);
-	keybinds[TCR] = std::make_tuple(2, 1, 2);
-	keybinds[TDL] = std::make_tuple(0, 2, 2);
-	keybinds[TDD] = std::make_tuple(1, 2, 2);
-	keybinds[TDR] = std::make_tuple(2, 2, 2);
+	keybinds[FUL] = std::make_tuple(0, 0, 2);
+	keybinds[FUU] = std::make_tuple(1, 0, 2);
+	keybinds[FUR] = std::make_tuple(2, 0, 2);
+	keybinds[FCL] = std::make_tuple(0, 1, 2);
+	keybinds[FCC] = std::make_tuple(1, 1, 2);
+	keybinds[FCR] = std::make_tuple(2, 1, 2);
+	keybinds[FDL] = std::make_tuple(0, 2, 2);
+	keybinds[FDD] = std::make_tuple(1, 2, 2);
+	keybinds[FDR] = std::make_tuple(2, 2, 2);
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
