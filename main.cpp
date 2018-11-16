@@ -64,9 +64,10 @@ std::unordered_map<int, std::tuple<int, int, int>> keybinds;
 
 GLFWwindow *window;
 unsigned int VAO, VBO, EBO; // board
-unsigned int X_VAO, X_VBO, X_EBO; // cross and x
+unsigned int X_VAO, X_VBO, X_EBO; // x
 unsigned int O_VAO, O_VBO, O_EBO; // o
-unsigned int TET_VAO, TET_VBO, TET_EBO; // tetrahedrons
+unsigned int CROSS_VAO, CROSS_VBO, CROSS_EBO; // cross
+unsigned int TET_VAO, TET_VBO, TET_EBO; // tetrahedron
 GLuint shaderProgram;
 
 glm::mat4 Model, View, Projection, mvp;
@@ -76,6 +77,8 @@ float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is hor
 double mouseStartX, mouseStartY; // for camera orbit calculations
 
 // A rectangular prism of length/width 2*LINE_RADIUS and height 2 centered on the origin
+GLfloat board_background[12*24];
+GLuint board_indices[12*36];
 static const GLfloat line_vertices[] = {
 	-LINE_RADIUS,  1.0f, LINE_RADIUS, // top left		0
 	LINE_RADIUS,  1.0f, LINE_RADIUS, // top right		1
@@ -95,13 +98,6 @@ static const GLuint line_indices[] {
 	0, 1, 5, 0, 5, 4, // top
 	3, 2, 7, 2, 6, 7 // bottom
 };
-
-GLfloat board_vertices[12*24];
-GLuint board_indices[12*36];
-
-GLfloat x_vertices[3*24];
-GLuint x_indices[3*36];
-glm::mat4 x_rotation;
 
 // from wikipedia
 static const GLfloat tet_a = 1 * (SCALE - PADDING) - PADDING;
@@ -168,9 +164,9 @@ void generate_line_group(int offset, int rx, int ry, int rz) {
 	for(int dx = -1; dx <= 1; dx += 2) {
 		for(int dz = -1; dz <= 1; dz += 2) {
 			for(int i = 0; i < 24; i += 3) {
-				board_vertices[currLine * 24 + i + rx] = line_vertices[i] + SCALE * dx;
-				board_vertices[currLine * 24 + i + ry] = line_vertices[i + 1];
-				board_vertices[currLine * 24 + i + rz] = line_vertices[i + 2] + SCALE * dz;
+				board_background[currLine * 24 + i + rx] = line_vertices[i] + SCALE * dx;
+				board_background[currLine * 24 + i + ry] = line_vertices[i + 1];
+				board_background[currLine * 24 + i + rz] = line_vertices[i + 2] + SCALE * dz;
 			}
 
 			for(int i = 0; i < 36; ++i) {
@@ -186,8 +182,10 @@ void generate_board_bg() {
 	generate_line_group(2, 1, 2, 0);
 }
 
+GLfloat cross_vertices[3*24];
+GLuint cross_indices[3*36];
 // use 3 rotations of the line to create a cross
-void generate_x_polygon() {
+void generate_cross_polygon() {
 	glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1, SCALE - PADDING, 1));
 	glm::mat4 rotations[3];
 	rotations[0] = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 0, 1));
@@ -199,6 +197,40 @@ void generate_x_polygon() {
 		glm::vec4 in = scale * glm::vec4(line_vertices[i], line_vertices[i + 1], line_vertices[i + 2], 1.0);
 		for(int bar = 0; bar < 3; ++bar) {
 			glm::vec4 out = rotations[bar] * in;
+			cross_vertices[bar * 24 + i + 0] = out.x;
+			cross_vertices[bar * 24 + i + 1] = out.y;
+			cross_vertices[bar * 24 + i + 2] = out.z;
+		}
+	}
+
+	// generate indices
+	for(int currLine = 0; currLine < 3; ++currLine) {
+		for(int i = 0; i < 36; ++i) {
+			cross_indices[currLine * 36 + i] = line_indices[i] + 8 * currLine;
+		}
+	}
+}
+
+GLfloat x_vertices[4*24];
+GLuint x_indices[4*36];
+// uses 4 rotations of the line to create an x
+void generate_x_polygon() {
+	glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1, SCALE - PADDING, 1));
+	glm::mat4 rotations[4];
+	rotations[0] = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0, 0, 1));
+	rotations[0] = glm::rotate(rotations[0], glm::radians(35.0f), glm::vec3(1, 0, 0));
+	rotations[1] = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0, 0, 1));
+	rotations[1] = glm::rotate(rotations[1], glm::radians(-35.0f), glm::vec3(1, 0, 0));
+	rotations[2] = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0, 0, 1));
+	rotations[2] = glm::rotate(rotations[2], glm::radians(35.0f), glm::vec3(1, 0, 0));
+	rotations[3] = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0, 0, 1));
+	rotations[3] = glm::rotate(rotations[3], glm::radians(-35.0f), glm::vec3(1, 0, 0));
+
+	// generate vertices
+	for(int i = 0; i < 24; i += 3) {
+		glm::vec4 in = scale * glm::vec4(line_vertices[i], line_vertices[i + 1], line_vertices[i + 2], 1.0);
+		for(int bar = 0; bar < 4; ++bar) {
+			glm::vec4 out = rotations[bar] * in;
 			x_vertices[bar * 24 + i + 0] = out.x;
 			x_vertices[bar * 24 + i + 1] = out.y;
 			x_vertices[bar * 24 + i + 2] = out.z;
@@ -206,15 +238,11 @@ void generate_x_polygon() {
 	}
 
 	// generate indices
-	for(int currLine = 0; currLine < 3; ++currLine) {
+	for(int currLine = 0; currLine < 4; ++currLine) {
 		for(int i = 0; i < 36; ++i) {
 			x_indices[currLine * 36 + i] = line_indices[i] + 8 * currLine;
 		}
 	}
-
-	// Creates a rotation matrix to convert the cross to an X, or in this case, a cursed star thing.
-	// TODO: May change x to be an entirely different object than cross.
-	x_rotation = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(1, 1, 1));
 }
 
 // updates the View matrix to the current camera position. Does not update mvp.
@@ -273,6 +301,7 @@ bool init() {
 	// build model arrays
 	std::cout << "generating models..." << std::endl;
 	generate_board_bg();
+	generate_cross_polygon();
 	generate_x_polygon();
 
 	// Generate buffers
@@ -306,6 +335,21 @@ bool init() {
 
 	glEnableVertexAttribArray(0);
 
+	// cross buffers
+	glGenVertexArrays(1, &CROSS_VAO);
+	glBindVertexArray(CROSS_VAO);
+
+	glGenBuffers(1, &CROSS_VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, CROSS_VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(cross_vertices), cross_vertices, GL_DYNAMIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
+
+	glGenBuffers(1, &CROSS_EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, CROSS_EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cross_indices), cross_indices, GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+
 	// tetrahedron buffers
 	glGenVertexArrays(1, &TET_VAO);
 	glBindVertexArray(TET_VAO);
@@ -327,7 +371,7 @@ bool init() {
 
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(board_vertices), board_vertices, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(board_background), board_background, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
 
 	glGenBuffers(1, &EBO);
@@ -341,13 +385,13 @@ bool init() {
 	glEnable(GL_CULL_FACE);
 
 
-	// Load Shaders (using somebody else's load code)
+	// Load Shaders
 	shaderProgram = LoadShaders("shaders/shader.vert", "shaders/shader.frag", nullptr);
 	glUseProgram(shaderProgram);
 	mvpLoc = glGetUniformLocation(shaderProgram, "mvp");
 	rgbLoc = glGetUniformLocation(shaderProgram, "rgb");
 
-	// Generate mvp and camera
+	// Generate mvp
 	Projection = glm::perspective(glm::radians(45.0f), float(SCREEN_WIDTH)/float(SCREEN_HEIGHT), 0.1f, 100.0f);
 	theta = M_PI/2;
 	phi = 0;
@@ -374,6 +418,10 @@ void close() {
 	glDeleteBuffers(1, &O_EBO);
 	glDeleteVertexArrays(1, &O_VAO);
 
+	glDeleteBuffers(1, &CROSS_VBO);
+	glDeleteBuffers(1, &CROSS_EBO);
+	glDeleteVertexArrays(1, &CROSS_VAO);
+
 	glDeleteBuffers(1, &TET_VBO);
 	glDeleteBuffers(1, &TET_EBO);
 	glDeleteVertexArrays(1, &TET_VAO);
@@ -398,7 +446,7 @@ void draw_specific_moves(CellState player) {
 			glBindVertexArray(TET_VAO);
 			break;
 		case KEY:
-			glBindVertexArray(X_VAO);
+			glBindVertexArray(CROSS_VAO);
 			break;
 		default:
 			return;
@@ -418,12 +466,11 @@ void draw_specific_moves(CellState player) {
 					update_rgb(r, g, b);
 
 					Model = glm::translate(glm::mat4(1.0f), glm::vec3(2*SCALE*(lx-1), -2*SCALE*(ly-1), 2*SCALE*(lz-1)));
-					if(player == X) Model = Model * x_rotation;
 					update_mvp();
 
 					switch(player) {
 						case X:
-							glDrawElements(GL_TRIANGLES, 3*36, GL_UNSIGNED_INT, 0);
+							glDrawElements(GL_TRIANGLES, 4*36, GL_UNSIGNED_INT, 0);
 							break;
 						case O:
 							glDrawElements(GL_TRIANGLES, 60, GL_UNSIGNED_INT, 0);
