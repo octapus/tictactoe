@@ -281,8 +281,6 @@ bool init() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); // on resize opengl is dumb
 
 	// Create window
 	window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "tic-tac-toe", NULL, NULL);
@@ -632,6 +630,13 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	update_mvp();
 }
 
+void window_size_callback(GLFWwindow* window, int width, int height) {
+	int size = width < height ? width : height;
+	int startx = (width - size)/2;
+	int starty = (height - size)/2;
+	glViewport(startx, starty, size, size);
+}
+
 int main() {
 	if(!init()) {
 		printf("Failed to initialize");
@@ -645,6 +650,7 @@ int main() {
 		glfwSetCursorPosCallback(window, cursor_pos_callback);
 		glfwSetMouseButtonCallback(window, mouse_button_callback);
 		glfwSetScrollCallback(window, scroll_callback);
+		glfwSetWindowSizeCallback(window, window_size_callback);
 
 		// Main loop
 		quit = false;
