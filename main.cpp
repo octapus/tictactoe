@@ -378,6 +378,7 @@ bool init() {
 
 	glEnableVertexAttribArray(0);
 
+	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
@@ -631,10 +632,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 void window_size_callback(GLFWwindow* window, int width, int height) {
-	int size = width < height ? width : height;
-	int startx = (width - size)/2;
-	int starty = (height - size)/2;
-	glViewport(startx, starty, size, size);
+	glViewport(0, 0, width, height);
+	Projection = glm::perspective(glm::radians(45.0f), float(width)/float(height), 0.1f, 100.0f);
+	update_mvp();
 }
 
 int main() {
