@@ -625,7 +625,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	mouseStartY = -1;
 }
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-	radius += yoffset;
+	radius += yoffset/10;
 	if(radius < 0) radius = 0.01;
 	update_view();
 	update_mvp();
