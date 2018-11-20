@@ -16,6 +16,8 @@
 #define SCALE 0.33333333333
 #define PADDING 0.0625
 
+#define PAN_SPEED 0.0001f
+#define ZOOM_SPEED 0.1
 
 #define QUIT GLFW_KEY_ESCAPE
 #define RESTART GLFW_KEY_DELETE
@@ -217,14 +219,11 @@ GLuint x_indices[4*36];
 void generate_x_polygon() {
 	glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1, SCALE - PADDING, 1));
 	glm::mat4 rotations[4];
-	rotations[0] = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0, 0, 1));
-	rotations[0] = glm::rotate(rotations[0], glm::radians(35.0f), glm::vec3(1, 0, 0));
-	rotations[1] = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0, 0, 1));
-	rotations[1] = glm::rotate(rotations[1], glm::radians(-35.0f), glm::vec3(1, 0, 0));
-	rotations[2] = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0, 0, 1));
-	rotations[2] = glm::rotate(rotations[2], glm::radians(35.0f), glm::vec3(1, 0, 0));
-	rotations[3] = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0, 0, 1));
-	rotations[3] = glm::rotate(rotations[3], glm::radians(-35.0f), glm::vec3(1, 0, 0));
+
+	rotations[0] = glm::rotate(glm::mat4(1.0f), glm::radians(55.0f), glm::vec3(1, 0, 1));
+	rotations[1] = glm::rotate(glm::mat4(1.0f), glm::radians(-55.0f), glm::vec3(1, 0, 1));
+	rotations[2] = glm::rotate(glm::mat4(1.0f), glm::radians(55.0f), glm::vec3(-1, 0, 1));
+	rotations[3] = glm::rotate(glm::mat4(1.0f), glm::radians(-55.0f), glm::vec3(-1, 0, 1));
 
 	// generate vertices
 	for(int i = 0; i < 24; i += 3) {
@@ -605,8 +604,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 	if(mouseStartX >= 0 && mouseStartY >= 0) {
-		theta += (xpos - mouseStartX) * 0.0001f;
-		phi += (ypos - mouseStartY) * 0.0001f;
+		theta += (xpos - mouseStartX) * PAN_SPEED;
+		phi += (ypos - mouseStartY) * PAN_SPEED;
 
 		// when phi hits pi everything flips, so stop it from ocurring
 		if(phi > M_PI/2.01) phi = M_PI/2.01;
@@ -625,7 +624,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	mouseStartY = -1;
 }
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-	radius += yoffset/10;
+	radius += yoffset * ZOOM_SPEED;
 	if(radius < 0) radius = 0.01;
 	update_view();
 	update_mvp();
