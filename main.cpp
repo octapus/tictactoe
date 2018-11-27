@@ -566,6 +566,20 @@ void turnCycle() {
 	if(turn == X) turn = O;
 	else turn = X;
 }
+void undo() {
+	if(moveHistoryIndex >= 0) {
+		std::tuple<int, int, int, int> priorMove = moveHistory.at(moveHistoryIndex--);
+		board.remove(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove));
+		turnCycle();
+	}
+}
+void redo() {
+	if(moveHistoryIndex < (int) (moveHistory.size()) - 1) {
+		std::tuple<int, int, int, int> priorMove = moveHistory.at(++moveHistoryIndex);
+		if(board.move(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove), turn)) won = true;
+		turnCycle();
+	}
+}
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
 		switch(key) {
@@ -592,18 +606,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				w = 0;
 				break;
 			case UNDO:
-				if(moveHistoryIndex >= 0) {
-					std::tuple<int, int, int, int> priorMove = moveHistory.at(moveHistoryIndex--);
-					board.remove(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove));
-					turnCycle();
+				if(!won) {
+					undo();
+				} else {
+					// replay game to reset KEY/WIN
+					board.clear();
+					turn = X;
+					won = false;
+					moveHistoryIndex = -1;
+					while(moveHistoryIndex < (int) (moveHistory.size()) - 2) {
+						redo();
+					}
 				}
 				break;
 			case REDO:
-				if(moveHistoryIndex < (int) (moveHistory.size()) - 1) {
-					std::tuple<int, int, int, int> priorMove = moveHistory.at(++moveHistoryIndex);
-					board.move(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove), turn);
-					turnCycle();
-				}
+				redo();
 				break;
 			default:
 				if(!won && keybinds.find(key) != keybinds.end()) {
