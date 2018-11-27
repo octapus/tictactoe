@@ -110,6 +110,10 @@ bool Board::move(int x, int y, int z, int w, CellState state) {
 	return false;
 }
 
+void Board::remove(int x, int y, int z, int w) {
+	board[x][y][z][w] = EMPTY;
+}
+
 void Board::clear() {
 	for(int x = 0; x < 3; ++x) {
 		for(int y = 0; y < 3; ++y) {

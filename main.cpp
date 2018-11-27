@@ -8,6 +8,7 @@
 
 #include<iostream>
 #include<unordered_map>
+#include<vector>
 #include "board.h"
 
 #define SCREEN_WIDTH 800
@@ -22,6 +23,9 @@
 #define QUIT GLFW_KEY_ESCAPE
 #define RESTART GLFW_KEY_DELETE
 #define RESET_CAMERA GLFW_KEY_ENTER
+
+#define UNDO GLFW_KEY_LEFT
+#define REDO GLFW_KEY_RIGHT
 
 // back/middle/front (front is facing screen) up/center/down left/middle/right
 #define BUL GLFW_KEY_Q
@@ -59,6 +63,8 @@
 
 Board board;
 CellState turn;
+std::vector<std::tuple<int, int, int, int>> moveHistory;
+int moveHistoryIndex;
 int w;
 bool quit;
 bool won;
@@ -556,6 +562,10 @@ void build_keybinds() {
 	keybinds[FDR] = std::make_tuple(2, 2, 2);
 }
 
+void turnCycle() {
+	if(turn == X) turn = O;
+	else turn = X;
+}
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
 		switch(key) {
@@ -581,18 +591,39 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			case W_DOWN:
 				w = 0;
 				break;
+			case UNDO:
+				if(moveHistoryIndex >= 0) {
+					std::tuple<int, int, int, int> priorMove = moveHistory.at(moveHistoryIndex--);
+					board.remove(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove));
+					turnCycle();
+				}
+				break;
+			case REDO:
+				if(moveHistoryIndex < (int) (moveHistory.size()) - 1) {
+					std::tuple<int, int, int, int> priorMove = moveHistory.at(++moveHistoryIndex);
+					board.move(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove), turn);
+					turnCycle();
+				}
+				break;
 			default:
 				if(!won && keybinds.find(key) != keybinds.end()) {
 					std::tuple<int, int, int> move = keybinds[key];
-					if(board.get(std::get<0>(move), std::get<1>(move), std::get<2>(move), w) == EMPTY) {
+					if(board.get(std::get<0>(move), std::get<1>(move), std::get<2>(move), w) == EMPTY) { // if valid move
+						// add to move history
+						moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
+						moveHistory.push_back(std::make_tuple(std::get<0>(move), std::get<1>(move), std::get<2>(move), w));
+						moveHistoryIndex = moveHistory.size() - 1;
+
+						// place move and check for a win
 						if(board.move(std::get<0>(move), std::get<1>(move), std::get<2>(move), w, turn)) {
 							won = true;
 							std::cout << turn << std::endl;
 							std::cout << board << std::endl;
 							break;
 						}
-						if(turn == X) turn = O;
-						else turn = X;
+
+						// change turn
+						turnCycle();
 					}
 				}
 				break;
@@ -642,6 +673,8 @@ int main() {
 	} else {
 		board = Board();
 		build_keybinds();
+		moveHistory.clear();
+		moveHistoryIndex = -1;
 		turn = X;
 		w = 1;
 
