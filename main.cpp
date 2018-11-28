@@ -580,6 +580,12 @@ void redo() {
 		turnCycle();
 	}
 }
+void restart() {
+	board.clear();
+	turn = X;
+	won = false;
+	moveHistoryIndex = -1;
+}
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
 		switch(key) {
@@ -587,10 +593,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				quit = true;
 				break;
 			case RESTART:
-				won = false;
-				turn = X;
-				w = 1;
-				board.clear();
+				restart();
 				break;
 			case RESET_CAMERA:
 				theta = M_PI/2;
@@ -610,10 +613,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					undo();
 				} else {
 					// replay game to reset KEY/WIN
-					board.clear();
-					turn = X;
-					won = false;
-					moveHistoryIndex = -1;
+					restart();
 					while(moveHistoryIndex < (int) (moveHistory.size()) - 2) {
 						redo();
 					}
@@ -691,9 +691,8 @@ int main() {
 		board = Board();
 		build_keybinds();
 		moveHistory.clear();
-		moveHistoryIndex = -1;
-		turn = X;
 		w = 1;
+		restart();
 
 		glfwSetKeyCallback(window, key_callback);
 		glfwSetCursorPosCallback(window, cursor_pos_callback);
