@@ -11,7 +11,7 @@ Board::Board() {
  * If the direction is off the board, it returns false.
  * Otherwise it will reverse directions if necessary when checking the second in a row.
  */
-bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, CellState state) {
+bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, Turn turn) {
 	int x1 = x+dx;
 	int y1 = y+dy;
 	int z1 = z+dz;
@@ -22,7 +22,7 @@ bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, Ce
 	if(x1 < 0 || y1 < 0 || z1 < 0 || w1 < 0)
 		return false;
 
-	if(board[x1][y1][z1][w1] != state)
+	if(board[x1][y1][z1][w1].state == CellState::EMPTY || board[x1][y1][z1][w1].turn != turn)
 		return false;
 
 	int x2 = x-dx;
@@ -39,7 +39,7 @@ bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, Ce
 		return false;
 	}
 
-	if(board[x2][y2][z2][w2] != state)
+	if(board[x2][y2][z2][w2].state == CellState::EMPTY || board[x2][y2][z2][w2].turn != turn)
 		return false;
 
 	return true;
@@ -48,10 +48,12 @@ bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, Ce
 /**
  * Moves in the specified spot if it is not already occupied.
  */
-bool Board::move(int x, int y, int z, int w, CellState state) {
-	if(board[x][y][z][w] != EMPTY) return false;
+bool Board::move(int x, int y, int z, int w, Turn turn) {
+	if(board[x][y][z][w].state != CellState::EMPTY) return false;
 
-	board[x][y][z][w] = state;
+	board[x][y][z][w].turn = turn;
+	board[x][y][z][w].state = CellState::PLACE;
+
 	std::vector<std::array<int, 4>> winDirections;
 	for(int dw = -1; dw <= 1; ++dw) {
 		for(int dz = -1; dz <= 1; ++dz) {
@@ -59,7 +61,7 @@ bool Board::move(int x, int y, int z, int w, CellState state) {
 				for(int dx = -1; dx <= 1; ++dx) {
 					if(dx == 0 && dy == 0 && dz == 0 && dw == 0)
 						continue;
-					if(check(x, y, z, w, dx, dy, dz, dw, state)) {
+					if(check(x, y, z, w, dx, dy, dz, dw, turn)) {
 						bool duplicate = false;
 						for(const auto &win : winDirections) {
 							if(dx == -win[0] && dy == -win[1] && dz == -win[2] && dw == -win[3]) {
@@ -82,7 +84,7 @@ bool Board::move(int x, int y, int z, int w, CellState state) {
 			int y1 = y+win[1];
 			int z1 = z+win[2];
 			int w1 = w+win[3];
-			board[x1][y1][z1][w1] = WIN;
+			board[x1][y1][z1][w1].state = CellState::WIN;
 
 			int x2 = x-win[0];
 			int y2 = y-win[1];
@@ -94,7 +96,7 @@ bool Board::move(int x, int y, int z, int w, CellState state) {
 				z2 = z+2*win[2];
 				w2 = w+2*win[3];
 			}
-			board[x2][y2][z2][w2] = WIN;
+			board[x2][y2][z2][w2].state = CellState::WIN;
 
 			printf("%d %d %d %d\n", x, y, z, w);
 			printf("%d %d %d %d\n", x1, y1, z1, w1);
@@ -102,7 +104,7 @@ bool Board::move(int x, int y, int z, int w, CellState state) {
 			std::cout << std::endl;
 		}
 
-		board[x][y][z][w] = KEY;
+		board[x][y][z][w].state = CellState::KEY;
 
 		return true;
 	}
@@ -111,7 +113,7 @@ bool Board::move(int x, int y, int z, int w, CellState state) {
 }
 
 void Board::remove(int x, int y, int z, int w) {
-	board[x][y][z][w] = EMPTY;
+	board[x][y][z][w].state = CellState::EMPTY;
 }
 
 void Board::clear() {
@@ -119,7 +121,7 @@ void Board::clear() {
 		for(int y = 0; y < 3; ++y) {
 			for(int z = 0; z < 3; ++z) {
 				for(int w = 0; w < 3; ++w) {
-					board[x][y][z][w] = EMPTY;
+					board[x][y][z][w].state = CellState::EMPTY;
 				}
 			}
 		}
@@ -131,7 +133,18 @@ std::ostream& operator<<(std::ostream &strm, const Board &b) {
 		for(int y = 0; y < 3; ++y) {
 			for(int z = 0; z < 3; ++z) {
 				for(int x = 0; x < 3; ++x) {
-					strm << b.board[x][y][z][w];
+					if(b.board[x][y][z][w].state == CellState::EMPTY) {
+						strm << '.';
+					} else {
+						switch(b.board[x][y][z][w].turn) {
+							case X:
+								strm << 'X';
+								break;
+							case O:
+								strm << 'O';
+								break;
+						}
+					}
 					strm << " ";
 				}
 				strm << " ";

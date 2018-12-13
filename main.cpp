@@ -18,9 +18,12 @@
 #define PAN_SPEED 0.0001f
 #define ZOOM_SPEED 0.1
 
+#define PLACE_BRIGHTNESS 0.2
+#define WIN_BRIGHTNESS 0.7
+#define KEY_BRIGHTNESS 1
 
 Board board;
-CellState turn;
+Turn turn;
 std::vector<std::tuple<int, int, int, int>> moveHistory;
 int moveHistoryIndex;
 int w;
@@ -31,8 +34,6 @@ GLFWwindow *window;
 unsigned int VAO, VBO, EBO; // board
 unsigned int X_VAO, X_VBO, X_EBO; // x
 unsigned int O_VAO, O_VBO, O_EBO; // o
-unsigned int CROSS_VAO, CROSS_VBO, CROSS_EBO; // cross
-unsigned int TET_VAO, TET_VBO, TET_EBO; // tetrahedron
 GLuint shaderProgram;
 
 glm::mat4 Model, View, Projection, mvp;
@@ -96,7 +97,6 @@ bool init() {
 	// build model arrays
 	std::cout << "generating models..." << std::endl;
 	generate_board_bg();
-	generate_cross_polygon();
 	generate_x_polygon();
 
 	// Generate buffers
@@ -127,36 +127,6 @@ bool init() {
 	glGenBuffers(1, &O_EBO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, O_EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, icosahedron_indicies_size, icosahedron_indicies, GL_DYNAMIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-
-	// cross buffers
-	glGenVertexArrays(1, &CROSS_VAO);
-	glBindVertexArray(CROSS_VAO);
-
-	glGenBuffers(1, &CROSS_VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, CROSS_VBO);
-	glBufferData(GL_ARRAY_BUFFER, cross_vertices_size, cross_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &CROSS_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, CROSS_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, cross_indices_size, cross_indices, GL_DYNAMIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-
-	// tetrahedron buffers
-	glGenVertexArrays(1, &TET_VAO);
-	glBindVertexArray(TET_VAO);
-
-	glGenBuffers(1, &TET_VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, TET_VBO);
-	glBufferData(GL_ARRAY_BUFFER, tetrahedron_vertices_size, tetrahedron_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &TET_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, TET_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, tetrahedron_indices_size, tetrahedron_indices, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(0);
 
@@ -214,14 +184,6 @@ void close() {
 	glDeleteBuffers(1, &O_EBO);
 	glDeleteVertexArrays(1, &O_VAO);
 
-	glDeleteBuffers(1, &CROSS_VBO);
-	glDeleteBuffers(1, &CROSS_EBO);
-	glDeleteVertexArrays(1, &CROSS_VAO);
-
-	glDeleteBuffers(1, &TET_VBO);
-	glDeleteBuffers(1, &TET_EBO);
-	glDeleteVertexArrays(1, &TET_VAO);
-
 	glDeleteProgram(shaderProgram);
 
 	glfwDestroyWindow(window);
@@ -229,7 +191,7 @@ void close() {
 }
 
 // draws the moves of a specific player
-void draw_specific_moves(CellState player) {
+void draw_specific_moves(Turn player) {
 	// select correct VAO
 	switch(player) {
 		case X:
@@ -237,12 +199,6 @@ void draw_specific_moves(CellState player) {
 			break;
 		case O:
 			glBindVertexArray(O_VAO);
-			break;
-		case WIN:
-			glBindVertexArray(TET_VAO);
-			break;
-		case KEY:
-			glBindVertexArray(CROSS_VAO);
 			break;
 		default:
 			return;
@@ -254,12 +210,28 @@ void draw_specific_moves(CellState player) {
 		for(int ly = 0; ly < 3; ++ly) {
 			for(int lz = 0; lz < 3; ++lz) {
 				// check all w for the move in order to set the right color blend
-				bool r = (board.get(lx, ly, lz, 0) == player);
-				bool g = (board.get(lx, ly, lz, 1) == player);
-				bool b = (board.get(lx, ly, lz, 2) == player);
+				float rgb[3];
+				for(int c = 0; c < 3; ++c) {
+					CellState state = board.get(lx, ly, lz, c);
+					if(state.state != CellState::EMPTY && state.turn == player) {
+						if(won) {
+							if(state.state == CellState::PLACE) {
+								rgb[c] = PLACE_BRIGHTNESS;
+							} else if(state.state == CellState::WIN) {
+								rgb[c] = WIN_BRIGHTNESS;
+							} else if(state.state == CellState::KEY) {
+								rgb[c] = KEY_BRIGHTNESS;
+							}
+						} else {
+							rgb[c] = 1;
+						}
+					} else {
+						rgb[c] = 0;
+					}
+				}
 
-				if(r || g || b) {
-					update_rgb(r, g, b);
+				if(rgb[0] > 0 || rgb[1] > 0 || rgb[2] > 0) {
+					update_rgb(rgb[0], rgb[1], rgb[2]);
 
 					Model = glm::translate(glm::mat4(1.0f), glm::vec3(2*SCALE*(lx-1), -2*SCALE*(ly-1), 2*SCALE*(lz-1)));
 					update_mvp();
@@ -271,11 +243,6 @@ void draw_specific_moves(CellState player) {
 						case O:
 							glDrawElements(GL_TRIANGLES, 60, GL_UNSIGNED_INT, 0);
 							break;
-						case WIN:
-							glDrawElements(GL_TRIANGLE_STRIP, 6, GL_UNSIGNED_INT, 0);
-							break;
-						case KEY:
-							glDrawElements(GL_TRIANGLES, 3*36, GL_UNSIGNED_INT, 0);
 						default:
 							break;
 					}
@@ -291,11 +258,6 @@ void draw_specific_moves(CellState player) {
 void draw_moves() {
 	draw_specific_moves(X);
 	draw_specific_moves(O);
-
-	if(won) {
-		draw_specific_moves(WIN);
-		draw_specific_moves(KEY);
-	}
 }
 
 void draw_board_background() {
@@ -384,7 +346,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			default:
 				if(!won && keybinds.find(key) != keybinds.end()) {
 					std::tuple<int, int, int> move = keybinds[key];
-					if(board.get(std::get<0>(move), std::get<1>(move), std::get<2>(move), w) == EMPTY) { // if valid move
+					if(board.get(std::get<0>(move), std::get<1>(move), std::get<2>(move), w).state == CellState::EMPTY) { // if valid move
 						// add to move history
 						moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
 						moveHistory.push_back(std::make_tuple(std::get<0>(move), std::get<1>(move), std::get<2>(move), w));
@@ -393,7 +355,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 						// place move and check for a win
 						if(board.move(std::get<0>(move), std::get<1>(move), std::get<2>(move), w, turn)) {
 							won = true;
-							std::cout << turn << std::endl;
 							std::cout << board << std::endl;
 							break;
 						}
