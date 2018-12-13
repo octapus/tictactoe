@@ -22,6 +22,15 @@
 #define WIN_BRIGHTNESS 0.7
 #define KEY_BRIGHTNESS 1
 
+// Switches turns (just in case more players are added)
+#define turnCycle() turn = (turn == X) ? O : X;
+
+// updates the mvp matrix and sends it to the gpu.
+#define update_mvp() mvp = Projection * View * Model; glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+
+// updates the rgb vector and sends it to the gpu.
+#define update_rgb(r, g, b)	glUniform3f(rgbLoc, r, g, b);
+
 Board board;
 Turn turn;
 std::vector<std::tuple<int, int, int, int>> moveHistory;
@@ -53,17 +62,6 @@ void update_view() {
 			glm::vec3(0, 0, 0), // looking at origin
 			glm::vec3(0, 1, 0) // +y is up
 		);
-}
-
-// updates the mvp matrix and sends it to the gpu.
-void update_mvp() {
-	mvp = Projection * View * Model;
-	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
-}
-
-// updates the rgb vector and sends it to the gpu.
-void update_rgb(float r, float g, float b) {
-	glUniform3f(rgbLoc, r, g, b);
 }
 
 bool init() {
@@ -255,38 +253,17 @@ void draw_specific_moves(Turn player) {
 	update_mvp();
 }
 
-void draw_moves() {
-	draw_specific_moves(X);
-	draw_specific_moves(O);
-}
-
 void draw_board_background() {
 	glBindVertexArray(VAO);
-	switch(w) {
-		case 0:
-			update_rgb(1, 0, 0);
-			break;
-		case 1:
-			update_rgb(0, 1, 0);
-			break;
-		case 2:
-			update_rgb(0, 0, 1);
-			break;
-	}
+
+	// set board color to either color of winning move or color of next move to be placed
+	int local_w = won ? std::get<3>(moveHistory.at(moveHistoryIndex)) : w;
+
+	update_rgb(local_w == 0, local_w == 1, local_w == 2);
+
 	glDrawElements(GL_TRIANGLES, 12*36, GL_UNSIGNED_INT, 0);
 }
 
-void draw_board() {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	draw_board_background();
-	draw_moves();
-	glfwSwapBuffers(window);
-}
-
-void turnCycle() {
-	if(turn == X) turn = O;
-	else turn = X;
-}
 void undo() {
 	if(moveHistoryIndex >= 0) {
 		std::tuple<int, int, int, int> priorMove = moveHistory.at(moveHistoryIndex--);
@@ -425,7 +402,14 @@ int main() {
 		won = false;
 		while(!glfwWindowShouldClose(window) && !quit) {
 			glfwWaitEvents();
-			draw_board();
+
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			draw_board_background();
+			draw_specific_moves(X);
+			draw_specific_moves(O);
+
+			glfwSwapBuffers(window);
 		}
 
 		return EXIT_SUCCESS;
