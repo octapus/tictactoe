@@ -307,14 +307,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				w = 0;
 				break;
 			case UNDO:
-				if(!won) {
-					undo();
-				} else {
-					// replay game to reset KEY/WIN
-					restart();
-					while(moveHistoryIndex < (int) (moveHistory.size()) - 2) {
-						redo();
-					}
+				undo();
+				if(won) {
+					won = false;
+					board.clearState();
 				}
 				break;
 			case REDO:
@@ -333,7 +329,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 						if(board.move(std::get<0>(move), std::get<1>(move), std::get<2>(move), w, turn)) {
 							won = true;
 							std::cout << board << std::endl;
-							break;
 						}
 
 						// change turn

@@ -20,6 +20,7 @@ class Board {
 		void remove(int x, int y, int z, int w);
 		CellState get(int x, int y, int z, int w) { return board[x][y][z][w]; }
 		void clear();
+		void clearState();
 };
 
 #endif

@@ -128,6 +128,18 @@ void Board::clear() {
 	}
 }
 
+void Board::clearState() {
+	for(int x = 0; x < 3; ++x) {
+		for(int y = 0; y < 3; ++y) {
+			for(int z = 0; z < 3; ++z) {
+				for(int w = 0; w < 3; ++w) {
+					if(board[x][y][z][w].state != CellState::EMPTY) board[x][y][z][w].state = CellState::PLACE;
+				}
+			}
+		}
+	}
+}
+
 std::ostream& operator<<(std::ostream &strm, const Board &b) {
 	for(int w = 0; w < 3; ++w) {
 		for(int y = 0; y < 3; ++y) {
