@@ -20,7 +20,7 @@ bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, Tu
 	if(x1 < 0 || y1 < 0 || z1 < 0 || w1 < 0)
 		return false;
 
-	if(board[x1][y1][z1][w1].state == CellState::EMPTY || board[x1][y1][z1][w1].turn != turn)
+	if(board[x1][y1][z1][w1].state != CellState::PLACE || board[x1][y1][z1][w1].turn != turn)
 		return false;
 
 	int x2 = x-dx;
@@ -37,7 +37,7 @@ bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, Tu
 		return false;
 	}
 
-	if(board[x2][y2][z2][w2].state == CellState::EMPTY || board[x2][y2][z2][w2].turn != turn)
+	if(board[x2][y2][z2][w2].state != CellState::PLACE || board[x2][y2][z2][w2].turn != turn)
 		return false;
 
 	return true;
