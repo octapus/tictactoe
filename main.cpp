@@ -21,7 +21,8 @@
 #define PLACE_BRIGHTNESS 0.2
 #define WIN_BRIGHTNESS 0.7
 #define KEY_BRIGHTNESS 1
-#define KEY_POSS_BRIGHTNESS 0.2
+#define KEY_POSS_BRIGHTNESS 0.3
+#define BLOCK_POSS_BRIGHTNESS 0.2
 
 // Switches turns (just in case more players are added)
 #define turnCycle() turn = (turn == X) ? O : X;
@@ -40,6 +41,7 @@ int w;
 bool quit;
 bool won;
 bool key_recommend = false;
+bool block_recommend = false;
 
 GLFWwindow *window;
 unsigned int VAO, VBO, EBO; // board
@@ -225,6 +227,8 @@ void draw_specific_moves(Turn player) {
 						} else {
 							if(state.state == CellState::KEY_POSS) {
 								rgb[c] = KEY_POSS_BRIGHTNESS;
+							} else if(state.state == CellState::BLOCK_POSS) {
+								rgb[c] = BLOCK_POSS_BRIGHTNESS;
 							} else {
 								rgb[c] = 1;
 							}
@@ -276,6 +280,7 @@ void undo() {
 		board.remove(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove));
 		turnCycle();
 		if(key_recommend) board.possibleKeys(turn, true);
+		if(block_recommend) board.possibleBlocks(turn, true);
 	}
 }
 void redo() {
@@ -283,8 +288,9 @@ void redo() {
 		std::tuple<int, int, int, int> priorMove = moveHistory.at(++moveHistoryIndex);
 		if(board.move(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove), turn)) won = true;
 		turnCycle();
-		if(key_recommend && !won) {
-			board.possibleKeys(turn, true);
+		if(!won) {
+			if(key_recommend) board.possibleKeys(turn, true);
+			if(block_recommend) board.possibleBlocks(turn, true);
 		}
 	}
 }
@@ -319,7 +325,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			case RECOMMEND_KEY:
 				key_recommend = !key_recommend;
 				if(key_recommend) board.possibleKeys(turn, true);
-				else board.clearRecs();
+				else board.clearKeyRecs();
+				break;
+			case RECOMMEND_BLOCK:
+				block_recommend = !block_recommend;
+				if(block_recommend) board.possibleBlocks(turn, true);
+				else board.clearBlockRecs();
 				break;
 			case UNDO:
 				if(won) {
@@ -351,6 +362,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 						// show recommendations
 						if(key_recommend) board.possibleKeys(turn, true);
+						if(block_recommend) board.possibleBlocks(turn, true);
 					}
 				}
 				break;

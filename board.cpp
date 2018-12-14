@@ -143,7 +143,7 @@ void Board::remove(int x, int y, int z, int w) {
 	board[x][y][z][w].state = CellState::EMPTY;
 }
 
-int Board::possibleKeys(Turn turn, bool mark) {
+int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::State markState) {
 	int result = 0;
 
 	for(int x = 0; x < 3; ++x) {
@@ -153,8 +153,8 @@ int Board::possibleKeys(Turn turn, bool mark) {
 					if(board[x][y][z][w].state == CellState::EMPTY) {
 						if(getWins(x, y, z, w, turn, nullptr) >= 2) {
 							if(mark) {
-								board[x][y][z][w].state = CellState::KEY_POSS;
-								board[x][y][z][w].turn = turn;
+								board[x][y][z][w].state = markState;
+								board[x][y][z][w].turn = markTurn;
 							}
 							++result;
 						}
@@ -165,6 +165,10 @@ int Board::possibleKeys(Turn turn, bool mark) {
 	}
 
 	return result;
+}
+
+int Board::possibleBlocks(Turn turn, bool mark) {
+	return possibleKeysMark((turn == X) ? O : X, true, turn, CellState::BLOCK_POSS);
 }
 
 void Board::clear() {
@@ -179,7 +183,7 @@ void Board::clear() {
 	}
 }
 
-void Board::clearRecs() {
+void Board::clearKeyRecs() {
 	for(int x = 0; x < 3; ++x) {
 		for(int y = 0; y < 3; ++y) {
 			for(int z = 0; z < 3; ++z) {
@@ -189,6 +193,21 @@ void Board::clearRecs() {
 			}
 		}
 	}
+}
+void Board::clearBlockRecs() {
+	for(int x = 0; x < 3; ++x) {
+		for(int y = 0; y < 3; ++y) {
+			for(int z = 0; z < 3; ++z) {
+				for(int w = 0; w < 3; ++w) {
+					if(board[x][y][z][w].state == CellState::BLOCK_POSS) board[x][y][z][w].state = CellState::EMPTY;
+				}
+			}
+		}
+	}
+}
+void Board::clearRecs() {
+	clearKeyRecs();
+	clearBlockRecs();
 }
 
 void Board::clearState() {
