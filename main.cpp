@@ -21,6 +21,7 @@
 #define PLACE_BRIGHTNESS 0.2
 #define WIN_BRIGHTNESS 0.7
 #define KEY_BRIGHTNESS 1
+#define KEY_POSS_BRIGHTNESS 0.2
 
 // Switches turns (just in case more players are added)
 #define turnCycle() turn = (turn == X) ? O : X;
@@ -38,6 +39,7 @@ int moveHistoryIndex;
 int w;
 bool quit;
 bool won;
+bool key_recommend = false;
 
 GLFWwindow *window;
 unsigned int VAO, VBO, EBO; // board
@@ -221,7 +223,11 @@ void draw_specific_moves(Turn player) {
 								rgb[c] = KEY_BRIGHTNESS;
 							}
 						} else {
-							rgb[c] = 1;
+							if(state.state == CellState::KEY_POSS) {
+								rgb[c] = KEY_POSS_BRIGHTNESS;
+							} else {
+								rgb[c] = 1;
+							}
 						}
 					} else {
 						rgb[c] = 0;
@@ -269,6 +275,7 @@ void undo() {
 		std::tuple<int, int, int, int> priorMove = moveHistory.at(moveHistoryIndex--);
 		board.remove(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove));
 		turnCycle();
+		if(key_recommend) board.possibleKeys(turn, true);
 	}
 }
 void redo() {
@@ -276,6 +283,9 @@ void redo() {
 		std::tuple<int, int, int, int> priorMove = moveHistory.at(++moveHistoryIndex);
 		if(board.move(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove), turn)) won = true;
 		turnCycle();
+		if(key_recommend && !won) {
+			board.possibleKeys(turn, true);
+		}
 	}
 }
 void restart() {
@@ -306,12 +316,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			case W_DOWN:
 				w = 0;
 				break;
+			case RECOMMEND_KEY:
+				key_recommend = !key_recommend;
+				if(key_recommend) board.possibleKeys(turn, true);
+				else board.clearRecs();
+				break;
 			case UNDO:
-				undo();
 				if(won) {
 					won = false;
 					board.clearState();
 				}
+				undo();
 				break;
 			case REDO:
 				redo();
@@ -319,7 +334,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			default:
 				if(!won && keybinds.find(key) != keybinds.end()) {
 					std::tuple<int, int, int> move = keybinds[key];
-					if(board.get(std::get<0>(move), std::get<1>(move), std::get<2>(move), w).state == CellState::EMPTY) { // if valid move
+					if(board.get(std::get<0>(move), std::get<1>(move), std::get<2>(move), w).state != CellState::PLACE) { // if valid move
 						// add to move history
 						moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
 						moveHistory.push_back(std::make_tuple(std::get<0>(move), std::get<1>(move), std::get<2>(move), w));
@@ -333,6 +348,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 						// change turn
 						turnCycle();
+
+						// show recommendations
+						if(key_recommend) board.possibleKeys(turn, true);
 					}
 				}
 				break;

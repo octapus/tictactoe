@@ -1,6 +1,4 @@
 #include "board.hpp"
-#include<vector>
-#include<array>
 
 Board::Board() {
 	clear();
@@ -46,36 +44,64 @@ bool Board::check(int x, int y, int z, int w, int dx, int dy, int dz, int dw, Tu
 }
 
 /**
- * Moves in the specified spot if it is not already occupied.
+ * Returns a list of the directions of wins (3 in a rows) for a specific move
  */
-bool Board::move(int x, int y, int z, int w, Turn turn) {
-	if(board[x][y][z][w].state != CellState::EMPTY) return false;
+int Board::getWins(int x, int y, int z, int w, Turn turn, std::vector<std::array<int, 4>> *directions) {
+	// If no directions array if provided, one must be created to check for duplicates
+	bool tmpDirections = false;
+	if(directions == nullptr) {
+		directions = new std::vector<std::array<int, 4>>();
+		tmpDirections = true;
+	}
 
-	board[x][y][z][w].turn = turn;
-	board[x][y][z][w].state = CellState::PLACE;
-
-	std::vector<std::array<int, 4>> winDirections;
 	for(int dw = -1; dw <= 1; ++dw) {
 		for(int dz = -1; dz <= 1; ++dz) {
 			for(int dy = -1; dy <= 1; ++dy) {
 				for(int dx = -1; dx <= 1; ++dx) {
+					// Skip if all directions are 0
 					if(dx == 0 && dy == 0 && dz == 0 && dw == 0)
 						continue;
+
+					// Check if direction contains 3 in a row
 					if(check(x, y, z, w, dx, dy, dz, dw, turn)) {
+						// Confirm it is not a duplicate of another win (in the opposite direction)
 						bool duplicate = false;
-						for(const auto &win : winDirections) {
+						for(const auto &win : *directions) {
 							if(dx == -win[0] && dy == -win[1] && dz == -win[2] && dw == -win[3]) {
 								duplicate = true;
 								break;
 							}
 						}
 
-						if(!duplicate) winDirections.push_back({dx, dy, dz, dw});
+						if(!duplicate) directions->push_back({dx, dy, dz, dw});
 					}
 				}
 			}
 		}
 	}
+
+	int result = directions->size();
+
+	// If a temporary directions array was created, clean up
+	if(tmpDirections) {
+		delete directions;
+	}
+
+	return result;
+}
+
+/**
+ * Moves in the specified spot if it is not already occupied.
+ */
+bool Board::move(int x, int y, int z, int w, Turn turn) {
+	clearRecs();
+	if(board[x][y][z][w].state != CellState::EMPTY) return false;
+
+	board[x][y][z][w].turn = turn;
+	board[x][y][z][w].state = CellState::PLACE;
+
+	std::vector<std::array<int, 4>> winDirections;
+	getWins(x, y, z, w, turn, &winDirections);
 
 	// mark wins
 	if(winDirections.size() >= 2) {
@@ -113,7 +139,32 @@ bool Board::move(int x, int y, int z, int w, Turn turn) {
 }
 
 void Board::remove(int x, int y, int z, int w) {
+	clearRecs();
 	board[x][y][z][w].state = CellState::EMPTY;
+}
+
+int Board::possibleKeys(Turn turn, bool mark) {
+	int result = 0;
+
+	for(int x = 0; x < 3; ++x) {
+		for(int y = 0; y < 3; ++y) {
+			for(int z = 0; z < 3; ++z) {
+				for(int w = 0; w < 3; ++w) {
+					if(board[x][y][z][w].state == CellState::EMPTY) {
+						if(getWins(x, y, z, w, turn, nullptr) >= 2) {
+							if(mark) {
+								board[x][y][z][w].state = CellState::KEY_POSS;
+								board[x][y][z][w].turn = turn;
+							}
+							++result;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return result;
 }
 
 void Board::clear() {
@@ -128,11 +179,24 @@ void Board::clear() {
 	}
 }
 
+void Board::clearRecs() {
+	for(int x = 0; x < 3; ++x) {
+		for(int y = 0; y < 3; ++y) {
+			for(int z = 0; z < 3; ++z) {
+				for(int w = 0; w < 3; ++w) {
+					if(board[x][y][z][w].state == CellState::KEY_POSS) board[x][y][z][w].state = CellState::EMPTY;
+				}
+			}
+		}
+	}
+}
+
 void Board::clearState() {
 	for(int x = 0; x < 3; ++x) {
 		for(int y = 0; y < 3; ++y) {
 			for(int z = 0; z < 3; ++z) {
 				for(int w = 0; w < 3; ++w) {
+					if(board[x][y][z][w].state == CellState::KEY_POSS) board[x][y][z][w].state = CellState::EMPTY;
 					if(board[x][y][z][w].state != CellState::EMPTY) board[x][y][z][w].state = CellState::PLACE;
 				}
 			}
@@ -150,10 +214,13 @@ std::ostream& operator<<(std::ostream &strm, const Board &b) {
 					} else {
 						switch(b.board[x][y][z][w].turn) {
 							case X:
-								strm << 'X';
+								strm << ((b.board[x][y][z][w].state == CellState::KEY_POSS) ? 'x' : 'X');
 								break;
 							case O:
-								strm << 'O';
+								strm << ((b.board[x][y][z][w].state == CellState::KEY_POSS) ? 'o' : 'O');
+								break;
+							default:
+								strm << '?';
 								break;
 						}
 					}

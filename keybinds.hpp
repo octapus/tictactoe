@@ -13,6 +13,8 @@
 #define W_UP GLFW_KEY_SPACE
 #define W_DOWN GLFW_KEY_LEFT_SHIFT
 
+#define RECOMMEND_KEY GLFW_KEY_1
+
 extern std::unordered_map<int, std::tuple<int, int, int>> keybinds;
 void build_keybinds();
 
