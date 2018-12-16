@@ -44,8 +44,10 @@ bool wDown = false, wUp = false;
 int w;
 bool quit;
 bool won;
+
 bool key_recommend = false;
 bool block_recommend = false;
+int recommendation = 0;
 
 GLFWwindow *window;
 unsigned int VAO, VBO, EBO; // board
@@ -278,9 +280,35 @@ void draw_board_background() {
 	// set board color to either color of winning move or color of next move to be placed
 	int local_w = won ? std::get<3>(moveHistory.at(moveHistoryIndex)) : w;
 
-	update_rgb(local_w == 0, local_w == 1, local_w == 2);
+	// brighten if key_possible, dim if block_possible
+	float mod = 0;
+	if(!won && recommendation != 0) {
+		mod = recommendation * 0.5;
+	}
+
+	update_rgb((local_w == 0) + mod, (local_w == 1) + mod, (local_w == 2) + mod);
 
 	glDrawElements(GL_TRIANGLES, 12*36, GL_UNSIGNED_INT, 0);
+}
+
+int recommend_keys() {
+	board.clearRecs();
+	int result = 0;
+
+	if(block_recommend) {
+		if(board.possibleBlocks(turn, true)) {
+			result = -1;
+		}
+	}
+
+	if(key_recommend) {
+		if(board.possibleKeys(turn, true)) {
+			result = 1;
+		}
+	}
+
+	recommendation = result;
+	return result;
 }
 
 void undo() {
@@ -288,8 +316,7 @@ void undo() {
 		std::tuple<int, int, int, int> priorMove = moveHistory.at(moveHistoryIndex--);
 		board.remove(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove));
 		turnCycle();
-		if(key_recommend) board.possibleKeys(turn, true);
-		if(block_recommend) board.possibleBlocks(turn, true);
+		recommend_keys();
 	}
 }
 void redo() {
@@ -297,10 +324,7 @@ void redo() {
 		std::tuple<int, int, int, int> priorMove = moveHistory.at(++moveHistoryIndex);
 		if(board.move(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove), turn)) won = true;
 		turnCycle();
-		if(!won) {
-			if(key_recommend) board.possibleKeys(turn, true);
-			if(block_recommend) board.possibleBlocks(turn, true);
-		}
+		if(!won) recommend_keys();
 	}
 }
 void restart() {
@@ -335,13 +359,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				break;
 			case RECOMMEND_KEY:
 				key_recommend = !key_recommend;
-				if(key_recommend) board.possibleKeys(turn, true);
-				else board.clearKeyRecs();
+				recommend_keys();
 				break;
 			case RECOMMEND_BLOCK:
 				block_recommend = !block_recommend;
-				if(block_recommend) board.possibleBlocks(turn, true);
-				else board.clearBlockRecs();
+				recommend_keys();
 				break;
 			case UNDO:
 				if(won) {
@@ -372,8 +394,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 						turnCycle();
 
 						// show recommendations
-						if(key_recommend) board.possibleKeys(turn, true);
-						if(block_recommend) board.possibleBlocks(turn, true);
+						recommend_keys();
 					}
 				}
 				break;
