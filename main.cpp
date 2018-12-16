@@ -24,6 +24,9 @@
 #define KEY_POSS_BRIGHTNESS 0.3
 #define BLOCK_POSS_BRIGHTNESS 0.2
 
+// Brightness of unfocused moves = UNFOCUSED_MOVE_DIM
+#define UNFOCUSED_MOVE_DIM 0
+
 // Switches turns (just in case more players are added)
 #define turnCycle() turn = (turn == X) ? O : X;
 
@@ -37,6 +40,7 @@ Board board;
 Turn turn;
 std::vector<std::tuple<int, int, int, int>> moveHistory;
 int moveHistoryIndex;
+bool wDown = false, wUp = false;
 int w;
 bool quit;
 bool won;
@@ -233,6 +237,11 @@ void draw_specific_moves(Turn player) {
 								rgb[c] = 1;
 							}
 						}
+
+						// dim unfocused moves
+						if(wUp || wDown) {
+							if(c != w) rgb[c] = UNFOCUSED_MOVE_DIM * rgb[c];
+						}
 					} else {
 						rgb[c] = 0;
 					}
@@ -317,10 +326,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				update_mvp();
 				break;
 			case W_UP:
-				w = 2;
+				wUp = true;
+				w = (wUp && wDown) ? 1 : 2;
 				break;
 			case W_DOWN:
-				w = 0;
+				wDown = true;
+				w = (wUp && wDown) ? 1 : 0;
 				break;
 			case RECOMMEND_KEY:
 				key_recommend = !key_recommend;
@@ -368,7 +379,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				break;
 		}
 	} else if(action == GLFW_RELEASE) {
-		if(key == W_UP || key == W_DOWN) w = 1;
+		switch(key) {
+			case W_UP:
+				wUp = false;
+				w = wDown ? 0 : 1;
+				break;
+			case W_DOWN:
+				wDown = false;
+				w = wUp ? 2 : 1;
+				break;
+		}
 	}
 }
 
