@@ -21,8 +21,12 @@
 #define PLACE_BRIGHTNESS 0.2
 #define WIN_BRIGHTNESS 0.7
 #define KEY_BRIGHTNESS 1
+
 #define KEY_POSS_BRIGHTNESS 0.3
+#define KEY_POSS_FOCUSED_BRIGHTNESS 8
+
 #define BLOCK_POSS_BRIGHTNESS 0.2
+#define BLOCK_POSS_FOCUSED_BRIGHTNESS 3
 
 // Brightness of unfocused moves = UNFOCUSED_MOVE_DIM
 #define UNFOCUSED_MOVE_DIM 0
@@ -47,6 +51,7 @@ bool won;
 
 bool key_recommend = false;
 bool block_recommend = false;
+bool focus_recommend = false;
 int recommendation = 0;
 
 GLFWwindow *window;
@@ -241,6 +246,23 @@ void draw_specific_moves(Turn player) {
 						}
 
 						// dim unfocused moves
+						if(focus_recommend) {
+							switch(state.state) {
+								case CellState::KEY_POSS:
+									rgb[c] = KEY_POSS_FOCUSED_BRIGHTNESS * rgb[c];
+									break;
+								case CellState::BLOCK_POSS:
+									rgb[c] = BLOCK_POSS_FOCUSED_BRIGHTNESS * rgb[c];
+									break;
+								case CellState::KEY:
+									break;
+								case CellState::WIN:
+									break;
+								default:
+									rgb[c] = UNFOCUSED_MOVE_DIM * rgb[c];
+									break;
+							}
+						}
 						if(wUp || wDown) {
 							if(c != w) rgb[c] = UNFOCUSED_MOVE_DIM * rgb[c];
 						}
@@ -365,6 +387,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				block_recommend = !block_recommend;
 				recommend_keys();
 				break;
+			case FOCUS_RECOMMEND:
+				focus_recommend = true;
+				break;
 			case UNDO:
 				if(won) {
 					won = false;
@@ -408,6 +433,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			case W_DOWN:
 				wDown = false;
 				w = wUp ? 2 : 1;
+				break;
+			case FOCUS_RECOMMEND:
+				focus_recommend = false;
 				break;
 		}
 	}
