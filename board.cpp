@@ -144,6 +144,11 @@ void Board::remove(int x, int y, int z, int w) {
 }
 
 int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::State markState, int layer) {
+	// if trap already confirmed, skip
+	if(layer > 0 && possibleKeysMark(turn, false, markTurn, markState, layer - 1) >= 2 && possibleKeysMark((turn == X) ? O : X, false, markTurn, markState, 0) == 0)
+		return 0;
+
+
 	int result = 0;
 
 	for(int x = 0; x < 3; ++x) {
