@@ -21,7 +21,7 @@
 
 #define FOCUS_RECOMMEND GLFW_KEY_LEFT_CONTROL
 
-extern std::unordered_map<int, std::tuple<int, int, int>> keybinds;
+extern std::unordered_map<int, std::array<int, 3>> keybinds;
 void build_keybinds();
 
 #endif

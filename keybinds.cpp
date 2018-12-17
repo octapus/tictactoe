@@ -31,38 +31,38 @@
 #define FDD GLFW_KEY_COMMA
 #define FDR GLFW_KEY_PERIOD
 
-std::unordered_map<int, std::tuple<int, int, int>> keybinds;
+std::unordered_map<int, std::array<int, 3>> keybinds;
 
 void build_keybinds() {
 	// build mapping of keys to positions
-	keybinds[BUL] = std::make_tuple(0, 0, 0);
-	keybinds[BUU] = std::make_tuple(1, 0, 0);
-	keybinds[BUR] = std::make_tuple(2, 0, 0);
-	keybinds[BCL] = std::make_tuple(0, 1, 0);
-	keybinds[BCC] = std::make_tuple(1, 1, 0);
-	keybinds[BCR] = std::make_tuple(2, 1, 0);
-	keybinds[BDL] = std::make_tuple(0, 2, 0);
-	keybinds[BDD] = std::make_tuple(1, 2, 0);
-	keybinds[BDR] = std::make_tuple(2, 2, 0);
+	keybinds[BUL] = {0, 0, 0};
+	keybinds[BUU] = {1, 0, 0};
+	keybinds[BUR] = {2, 0, 0};
+	keybinds[BCL] = {0, 1, 0};
+	keybinds[BCC] = {1, 1, 0};
+	keybinds[BCR] = {2, 1, 0};
+	keybinds[BDL] = {0, 2, 0};
+	keybinds[BDD] = {1, 2, 0};
+	keybinds[BDR] = {2, 2, 0};
 
-	keybinds[MUL] = std::make_tuple(0, 0, 1);
-	keybinds[MUU] = std::make_tuple(1, 0, 1);
-	keybinds[MUR] = std::make_tuple(2, 0, 1);
-	keybinds[MCL] = std::make_tuple(0, 1, 1);
-	keybinds[MCC] = std::make_tuple(1, 1, 1);
-	keybinds[MCR] = std::make_tuple(2, 1, 1);
-	keybinds[MDL] = std::make_tuple(0, 2, 1);
-	keybinds[MDD] = std::make_tuple(1, 2, 1);
-	keybinds[MDR] = std::make_tuple(2, 2, 1);
+	keybinds[MUL] = {0, 0, 1};
+	keybinds[MUU] = {1, 0, 1};
+	keybinds[MUR] = {2, 0, 1};
+	keybinds[MCL] = {0, 1, 1};
+	keybinds[MCC] = {1, 1, 1};
+	keybinds[MCR] = {2, 1, 1};
+	keybinds[MDL] = {0, 2, 1};
+	keybinds[MDD] = {1, 2, 1};
+	keybinds[MDR] = {2, 2, 1};
 
-	keybinds[FUL] = std::make_tuple(0, 0, 2);
-	keybinds[FUU] = std::make_tuple(1, 0, 2);
-	keybinds[FUR] = std::make_tuple(2, 0, 2);
-	keybinds[FCL] = std::make_tuple(0, 1, 2);
-	keybinds[FCC] = std::make_tuple(1, 1, 2);
-	keybinds[FCR] = std::make_tuple(2, 1, 2);
-	keybinds[FDL] = std::make_tuple(0, 2, 2);
-	keybinds[FDD] = std::make_tuple(1, 2, 2);
-	keybinds[FDR] = std::make_tuple(2, 2, 2);
+	keybinds[FUL] = {0, 0, 2};
+	keybinds[FUU] = {1, 0, 2};
+	keybinds[FUR] = {2, 0, 2};
+	keybinds[FCL] = {0, 1, 2};
+	keybinds[FCC] = {1, 1, 2};
+	keybinds[FCR] = {2, 1, 2};
+	keybinds[FDL] = {0, 2, 2};
+	keybinds[FDD] = {1, 2, 2};
+	keybinds[FDR] = {2, 2, 2};
 }
 

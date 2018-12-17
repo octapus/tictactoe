@@ -18,10 +18,12 @@
 #define PAN_SPEED 0.0001f
 #define ZOOM_SPEED 0.1
 
-#define PLACE_BRIGHTNESS 0.2
-#define WIN_BRIGHTNESS 0.7
+// brightness values after win. FOCUS_RECOMMEND (LEFT_CTRL) to dim non-win moves.
+#define PLACE_BRIGHTNESS 1
+#define WIN_BRIGHTNESS 1
 #define KEY_BRIGHTNESS 1
 
+// brightness values for possibilites (recommendations) when unfocused/focused with FOCUS_RECOMMEND (LEFT_CTRL)
 #define KEY_POSS_BRIGHTNESS 0
 #define KEY_POSS_FOCUSED_BRIGHTNESS 1
 #define BLOCK_POSS_BRIGHTNESS 0
@@ -35,7 +37,7 @@
 // board color += recommendation * BOARD_POSS_ADJUST
 #define BOARD_POSS_ADJUST 0.5
 
-// Brightness of unfocused moves = UNFOCUSED_MOVE_DIM
+// unfocused move color *= UNFOCUSED_MOVE_DIM
 #define UNFOCUSED_MOVE_DIM 0
 
 // Switches turns (just in case more players are added)
@@ -49,7 +51,7 @@
 
 Board board;
 Turn turn;
-std::vector<std::tuple<int, int, int, int>> moveHistory;
+std::vector<std::array<int, 4>> moveHistory;
 int moveHistoryIndex;
 bool wDown = false, wUp = false;
 int w;
@@ -62,7 +64,7 @@ bool focus_recommend = false;
 float recommendation = 0;
 
 GLFWwindow *window;
-unsigned int VAO, VBO, EBO; // board
+unsigned int BOARD_VAO, BOARD_VBO, BOARD_EBO; // board
 unsigned int X_VAO, X_VBO, X_EBO; // x
 unsigned int O_VAO, O_VBO, O_EBO; // o
 GLuint shaderProgram;
@@ -151,16 +153,16 @@ bool init() {
 	glEnableVertexAttribArray(0);
 
 	// board buffers
-	glGenVertexArrays(1, &VAO);
-	glBindVertexArray(VAO);
+	glGenVertexArrays(1, &BOARD_VAO);
+	glBindVertexArray(BOARD_VAO);
 
-	glGenBuffers(1, &VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glGenBuffers(1, &BOARD_VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, BOARD_VBO);
 	glBufferData(GL_ARRAY_BUFFER, board_vertices_size, board_vertices, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
 
-	glGenBuffers(1, &EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glGenBuffers(1, &BOARD_EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, BOARD_EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, board_indices_size, board_indices, GL_DYNAMIC_DRAW);
 
 	glEnableVertexAttribArray(0);
@@ -192,9 +194,9 @@ bool init() {
 }
 
 void close() {
-	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
-	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &BOARD_VBO);
+	glDeleteBuffers(1, &BOARD_EBO);
+	glDeleteVertexArrays(1, &BOARD_VAO);
 
 	glDeleteBuffers(1, &X_VBO);
 	glDeleteBuffers(1, &X_EBO);
@@ -327,7 +329,7 @@ void draw_specific_moves(Turn player) {
 }
 
 void draw_board_background() {
-	glBindVertexArray(VAO);
+	glBindVertexArray(BOARD_VAO);
 
 	// set board color to either color of winning move or color of next move to be placed
 	int local_w = won ? std::get<3>(moveHistory.at(moveHistoryIndex)) : w;
@@ -377,16 +379,16 @@ float recommend_keys() {
 
 void undo() {
 	if(moveHistoryIndex >= 0) {
-		std::tuple<int, int, int, int> priorMove = moveHistory.at(moveHistoryIndex--);
-		board.remove(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove));
+		std::array<int, 4> priorMove = moveHistory.at(moveHistoryIndex--);
+		board.remove(priorMove[0], priorMove[1], priorMove[2], priorMove[3]);
 		turnCycle();
 		recommend_keys();
 	}
 }
 void redo() {
 	if(moveHistoryIndex < (int) (moveHistory.size()) - 1) {
-		std::tuple<int, int, int, int> priorMove = moveHistory.at(++moveHistoryIndex);
-		if(board.move(std::get<0>(priorMove), std::get<1>(priorMove), std::get<2>(priorMove), std::get<3>(priorMove), turn)) won = true;
+		std::array<int, 4> priorMove = moveHistory.at(++moveHistoryIndex);
+		if(board.move(priorMove[0], priorMove[1], priorMove[2], priorMove[3], turn)) won = true;
 		turnCycle();
 		if(!won) recommend_keys();
 	}
@@ -453,15 +455,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				break;
 			default:
 				if(!won && keybinds.find(key) != keybinds.end()) {
-					std::tuple<int, int, int> move = keybinds[key];
-					if(board.get(std::get<0>(move), std::get<1>(move), std::get<2>(move), w).state != CellState::PLACE) { // if valid move
+					std::array<int, 3> move = keybinds[key];
+					if(board.get(move[0], move[1], move[2], w).state != CellState::PLACE) { // if valid move
 						// add to move history
 						moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
-						moveHistory.push_back(std::make_tuple(std::get<0>(move), std::get<1>(move), std::get<2>(move), w));
+						moveHistory.push_back({move[0], move[1], move[2], w});
 						moveHistoryIndex = moveHistory.size() - 1;
 
 						// place move and check for a win
-						if(board.move(std::get<0>(move), std::get<1>(move), std::get<2>(move), w, turn)) {
+						if(board.move(move[0], move[1], move[2], w, turn)) {
 							won = true;
 							board.clearRecs();
 							std::cout << board << std::endl;
