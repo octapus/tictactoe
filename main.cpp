@@ -22,11 +22,14 @@
 #define WIN_BRIGHTNESS 0.7
 #define KEY_BRIGHTNESS 1
 
-#define KEY_POSS_BRIGHTNESS 0.3
-#define KEY_POSS_FOCUSED_BRIGHTNESS 8
+#define KEY_POSS_BRIGHTNESS 0
+#define KEY_POSS_FOCUSED_BRIGHTNESS 1
 
-#define BLOCK_POSS_BRIGHTNESS 0.2
-#define BLOCK_POSS_FOCUSED_BRIGHTNESS 3
+#define BLOCK_POSS_BRIGHTNESS 0
+#define BLOCK_POSS_FOCUSED_BRIGHTNESS 0.5
+
+// board color += recommendation * BOARD_POSS_ADJUST
+#define BOARD_POSS_ADJUST 0.5
 
 // Brightness of unfocused moves = UNFOCUSED_MOVE_DIM
 #define UNFOCUSED_MOVE_DIM 0
@@ -52,7 +55,7 @@ bool won;
 bool key_recommend = false;
 bool block_recommend = false;
 bool focus_recommend = false;
-int recommendation = 0;
+float recommendation = 0;
 
 GLFWwindow *window;
 unsigned int VAO, VBO, EBO; // board
@@ -249,10 +252,10 @@ void draw_specific_moves(Turn player) {
 						if(focus_recommend) {
 							switch(state.state) {
 								case CellState::KEY_POSS:
-									rgb[c] = KEY_POSS_FOCUSED_BRIGHTNESS * rgb[c];
+									rgb[c] = KEY_POSS_FOCUSED_BRIGHTNESS;
 									break;
 								case CellState::BLOCK_POSS:
-									rgb[c] = BLOCK_POSS_FOCUSED_BRIGHTNESS * rgb[c];
+									rgb[c] = BLOCK_POSS_FOCUSED_BRIGHTNESS;
 									break;
 								case CellState::KEY:
 									break;
@@ -305,7 +308,7 @@ void draw_board_background() {
 	// brighten if key_possible, dim if block_possible
 	float mod = 0;
 	if(!won && recommendation != 0) {
-		mod = recommendation * 0.5;
+		mod = recommendation * BOARD_POSS_ADJUST;
 	}
 
 	update_rgb((local_w == 0) + mod, (local_w == 1) + mod, (local_w == 2) + mod);
@@ -313,9 +316,9 @@ void draw_board_background() {
 	glDrawElements(GL_TRIANGLES, 12*36, GL_UNSIGNED_INT, 0);
 }
 
-int recommend_keys() {
+float recommend_keys() {
 	board.clearRecs();
-	int result = 0;
+	float result = 0;
 
 	if(block_recommend) {
 		if(board.possibleBlocks(turn, true)) {
