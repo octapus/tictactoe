@@ -24,9 +24,13 @@
 
 #define KEY_POSS_BRIGHTNESS 0
 #define KEY_POSS_FOCUSED_BRIGHTNESS 1
-
 #define BLOCK_POSS_BRIGHTNESS 0
-#define BLOCK_POSS_FOCUSED_BRIGHTNESS 0.5
+#define BLOCK_POSS_FOCUSED_BRIGHTNESS 0.8
+
+#define KEY_POSS_1_BRIGHTNESS 0
+#define KEY_POSS_1_FOCUSED_BRIGHTNESS 0.5
+#define BLOCK_POSS_1_BRIGHTNESS 0
+#define BLOCK_POSS_1_FOCUSED_BRIGHTNESS 0.3
 
 // board color += recommendation * BOARD_POSS_ADJUST
 #define BOARD_POSS_ADJUST 0.5
@@ -52,8 +56,8 @@ int w;
 bool quit;
 bool won;
 
-bool key_recommend = false;
-bool block_recommend = false;
+bool key_recommend = false, block_recommend = false;
+bool key_1_recommend = false, block_1_recommend = false;
 bool focus_recommend = false;
 float recommendation = 0;
 
@@ -231,20 +235,37 @@ void draw_specific_moves(Turn player) {
 					CellState state = board.get(lx, ly, lz, c);
 					if(state.state != CellState::EMPTY && state.turn == player) {
 						if(won) {
-							if(state.state == CellState::PLACE) {
-								rgb[c] = PLACE_BRIGHTNESS;
-							} else if(state.state == CellState::WIN) {
-								rgb[c] = WIN_BRIGHTNESS;
-							} else if(state.state == CellState::KEY) {
-								rgb[c] = KEY_BRIGHTNESS;
+							switch(state.state) {
+								case CellState::PLACE:
+									rgb[c] = PLACE_BRIGHTNESS;
+									break;
+								case CellState::WIN:
+									rgb[c] = WIN_BRIGHTNESS;
+									break;
+								case CellState::KEY:
+									rgb[c] = KEY_BRIGHTNESS;
+									break;
+								default:
+									rgb[c] = 0;
+									break;
 							}
 						} else {
-							if(state.state == CellState::KEY_POSS) {
-								rgb[c] = KEY_POSS_BRIGHTNESS;
-							} else if(state.state == CellState::BLOCK_POSS) {
-								rgb[c] = BLOCK_POSS_BRIGHTNESS;
-							} else {
-								rgb[c] = 1;
+							switch(state.state) {
+								case CellState::KEY_POSS_1:
+									rgb[c] = KEY_POSS_1_BRIGHTNESS;
+									break;
+								case CellState::BLOCK_POSS_1:
+									rgb[c] = BLOCK_POSS_1_BRIGHTNESS;
+									break;
+								case CellState::KEY_POSS:
+									rgb[c] = KEY_POSS_BRIGHTNESS;
+									break;
+								case CellState::BLOCK_POSS:
+									rgb[c] = BLOCK_POSS_BRIGHTNESS;
+									break;
+								default:
+									rgb[c] = 1;
+									break;
 							}
 						}
 
@@ -256,6 +277,12 @@ void draw_specific_moves(Turn player) {
 									break;
 								case CellState::BLOCK_POSS:
 									rgb[c] = BLOCK_POSS_FOCUSED_BRIGHTNESS;
+									break;
+								case CellState::KEY_POSS_1:
+									rgb[c] = KEY_POSS_1_FOCUSED_BRIGHTNESS;
+									break;
+								case CellState::BLOCK_POSS_1:
+									rgb[c] = BLOCK_POSS_1_FOCUSED_BRIGHTNESS;
 									break;
 								case CellState::KEY:
 									break;
@@ -320,14 +347,26 @@ float recommend_keys() {
 	board.clearRecs();
 	float result = 0;
 
+	if(block_1_recommend) {
+		if(board.possibleBlocks(turn, true, 1)) {
+			result = -0.5;
+		}
+	}
+
+	if(key_1_recommend) {
+		if(board.possibleKeys(turn, true, 1)) {
+			result = 0.5;
+		}
+	}
+
 	if(block_recommend) {
-		if(board.possibleBlocks(turn, true)) {
+		if(board.possibleBlocks(turn, true, 0)) {
 			result = -1;
 		}
 	}
 
 	if(key_recommend) {
-		if(board.possibleKeys(turn, true)) {
+		if(board.possibleKeys(turn, true, 0)) {
 			result = 1;
 		}
 	}
@@ -357,6 +396,7 @@ void restart() {
 	turn = X;
 	won = false;
 	moveHistoryIndex = -1;
+	recommendation = 0;
 }
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
@@ -390,13 +430,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				block_recommend = !block_recommend;
 				recommend_keys();
 				break;
+			case RECOMMEND_KEY_1:
+				key_1_recommend = !key_1_recommend;
+				recommend_keys();
+				break;
+			case RECOMMEND_BLOCK_1:
+				block_1_recommend = !block_1_recommend;
+				recommend_keys();
+				break;
 			case FOCUS_RECOMMEND:
 				focus_recommend = true;
 				break;
 			case UNDO:
 				if(won) {
 					won = false;
-					board.clearState();
+					board.clearWins();
 				}
 				undo();
 				break;
@@ -415,6 +463,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 						// place move and check for a win
 						if(board.move(std::get<0>(move), std::get<1>(move), std::get<2>(move), w, turn)) {
 							won = true;
+							board.clearRecs();
 							std::cout << board << std::endl;
 						}
 

@@ -143,7 +143,7 @@ void Board::remove(int x, int y, int z, int w) {
 	board[x][y][z][w].state = CellState::EMPTY;
 }
 
-int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::State markState) {
+int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::State markState, int layer) {
 	int result = 0;
 
 	for(int x = 0; x < 3; ++x) {
@@ -151,12 +151,27 @@ int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::Stat
 			for(int z = 0; z < 3; ++z) {
 				for(int w = 0; w < 3; ++w) {
 					if(board[x][y][z][w].state == CellState::EMPTY) {
-						if(getWins(x, y, z, w, turn, nullptr) >= 2) {
-							if(mark) {
-								board[x][y][z][w].state = markState;
-								board[x][y][z][w].turn = markTurn;
+						board[x][y][z][w].turn = turn;
+						board[x][y][z][w].state = CellState::PLACE;
+						bool marked = false;
+
+						if(layer <= 0) {
+							if(getWins(x, y, z, w, turn, nullptr) >= 2) {
+								marked = mark;
+								++result;
 							}
-							++result;
+						} else {
+							if(possibleKeysMark(turn, false, markTurn, markState, layer - 1) >= 2 && possibleKeysMark((turn == X) ? O : X, false, markTurn, markState, 0) == 0) {
+								marked = mark;
+								++result;
+							}
+						}
+
+						if(marked) {
+							board[x][y][z][w].turn = markTurn;
+							board[x][y][z][w].state = markState;
+						} else {
+							board[x][y][z][w].state = CellState::EMPTY;
 						}
 					}
 				}
@@ -167,8 +182,36 @@ int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::Stat
 	return result;
 }
 
-int Board::possibleBlocks(Turn turn, bool mark) {
-	return possibleKeysMark((turn == X) ? O : X, true, turn, CellState::BLOCK_POSS);
+int Board::possibleKeys(Turn turn, bool mark, int layer) {
+	CellState::State markState = CellState::EMPTY;
+	switch(layer) {
+		case 0:
+			markState = CellState::KEY_POSS;
+			break;
+		case 1:
+			markState = CellState::KEY_POSS_1;
+			break;
+		default:
+			break;
+	}
+
+	return possibleKeysMark(turn, mark, turn, markState, layer);
+}
+
+int Board::possibleBlocks(Turn turn, bool mark, int layer) {
+	CellState::State markState = CellState::EMPTY;
+	switch(layer) {
+		case 0:
+			markState = CellState::BLOCK_POSS;
+			break;
+		case 1:
+			markState = CellState::BLOCK_POSS_1;
+			break;
+		default:
+			break;
+	}
+
+	return possibleKeysMark((turn == X) ? O : X, mark, turn, markState, layer);
 }
 
 void Board::clear() {
@@ -183,40 +226,43 @@ void Board::clear() {
 	}
 }
 
-void Board::clearKeyRecs() {
+void Board::clear(CellState::State state) {
 	for(int x = 0; x < 3; ++x) {
 		for(int y = 0; y < 3; ++y) {
 			for(int z = 0; z < 3; ++z) {
 				for(int w = 0; w < 3; ++w) {
-					if(board[x][y][z][w].state == CellState::KEY_POSS) board[x][y][z][w].state = CellState::EMPTY;
+					if(board[x][y][z][w].state == state) board[x][y][z][w].state = CellState::EMPTY;
 				}
 			}
 		}
 	}
-}
-void Board::clearBlockRecs() {
-	for(int x = 0; x < 3; ++x) {
-		for(int y = 0; y < 3; ++y) {
-			for(int z = 0; z < 3; ++z) {
-				for(int w = 0; w < 3; ++w) {
-					if(board[x][y][z][w].state == CellState::BLOCK_POSS) board[x][y][z][w].state = CellState::EMPTY;
-				}
-			}
-		}
-	}
-}
-void Board::clearRecs() {
-	clearKeyRecs();
-	clearBlockRecs();
 }
 
-void Board::clearState() {
+void Board::clearRecs() {
 	for(int x = 0; x < 3; ++x) {
 		for(int y = 0; y < 3; ++y) {
 			for(int z = 0; z < 3; ++z) {
 				for(int w = 0; w < 3; ++w) {
-					if(board[x][y][z][w].state == CellState::KEY_POSS) board[x][y][z][w].state = CellState::EMPTY;
-					if(board[x][y][z][w].state != CellState::EMPTY) board[x][y][z][w].state = CellState::PLACE;
+					if(board[x][y][z][w].state != CellState::PLACE
+							&& board[x][y][z][w].state != CellState::WIN
+							&& board[x][y][z][w].state != CellState::KEY)
+						board[x][y][z][w].state = CellState::EMPTY;
+				}
+			}
+		}
+	}
+}
+
+void Board::clearWins() {
+	for(int x = 0; x < 3; ++x) {
+		for(int y = 0; y < 3; ++y) {
+			for(int z = 0; z < 3; ++z) {
+				for(int w = 0; w < 3; ++w) {
+					if(board[x][y][z][w].state == CellState::KEY
+							|| board[x][y][z][w].state == CellState::WIN
+							|| board[x][y][z][w].state == CellState::PLACE)
+						board[x][y][z][w].state = CellState::PLACE;
+					else board[x][y][z][w].state = CellState::EMPTY;
 				}
 			}
 		}
