@@ -19,7 +19,7 @@
 #define ZOOM_SPEED 0.1
 
 // brightness values after win. FOCUS_RECOMMEND (LEFT_CTRL) to dim non-win moves.
-#define PLACE_BRIGHTNESS 1
+#define PLACE_BRIGHTNESS 0.8
 #define WIN_BRIGHTNESS 1
 #define KEY_BRIGHTNESS 1
 
@@ -347,6 +347,8 @@ void draw_board_background() {
 
 float recommend_keys() {
 	board.clearRecs();
+	if(won) return 0;
+
 	float result = 0;
 
 	if(block_1_recommend) {
@@ -405,9 +407,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		switch(key) {
 			case QUIT:
 				quit = true;
+				std::cout << "quitting..." << std::endl;
 				break;
 			case RESTART:
 				restart();
+				std::cout << "restarting..." << std::endl << std::endl;
 				break;
 			case RESET_CAMERA:
 				theta = M_PI/2;
@@ -427,18 +431,22 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			case RECOMMEND_KEY:
 				key_recommend = !key_recommend;
 				recommend_keys();
+				std::cout << "recommend key 0: " << key_recommend << std::endl;
 				break;
 			case RECOMMEND_BLOCK:
 				block_recommend = !block_recommend;
 				recommend_keys();
+				std::cout << "recommend block 0: " << block_recommend << std::endl;
 				break;
 			case RECOMMEND_KEY_1:
 				key_1_recommend = !key_1_recommend;
 				recommend_keys();
+				std::cout << "recommend key 1: " << key_1_recommend << std::endl;
 				break;
 			case RECOMMEND_BLOCK_1:
 				block_1_recommend = !block_1_recommend;
 				recommend_keys();
+				std::cout << "recommend block 1: " << block_1_recommend << std::endl;
 				break;
 			case FOCUS_RECOMMEND:
 				focus_recommend = true;

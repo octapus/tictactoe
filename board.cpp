@@ -155,7 +155,12 @@ int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::Stat
 		for(int y = 0; y < 3; ++y) {
 			for(int z = 0; z < 3; ++z) {
 				for(int w = 0; w < 3; ++w) {
-					if(board[x][y][z][w].state == CellState::EMPTY) {
+					if(board[x][y][z][w].state != CellState::PLACE
+							&& board[x][y][z][w].state != CellState::WIN
+							&& board[x][y][z][w].state != CellState::KEY) {
+						Turn orgTurn = board[x][y][z][w].turn;
+						CellState::State orgState = board[x][y][z][w].state;
+
 						board[x][y][z][w].turn = turn;
 						board[x][y][z][w].state = CellState::PLACE;
 						bool marked = false;
@@ -176,7 +181,8 @@ int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::Stat
 							board[x][y][z][w].turn = markTurn;
 							board[x][y][z][w].state = markState;
 						} else {
-							board[x][y][z][w].state = CellState::EMPTY;
+							board[x][y][z][w].turn = orgTurn;
+							board[x][y][z][w].state = orgState;
 						}
 					}
 				}
