@@ -15,7 +15,7 @@
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 800
 
-#define PAN_SPEED 0.0001f
+#define PAN_SPEED 0.003f
 #define ZOOM_SPEED 0.1
 
 // brightness values after win. FOCUS_RECOMMEND (LEFT_CTRL) to dim non-win moves.
@@ -73,7 +73,7 @@ glm::mat4 Model, View, Projection, mvp;
 unsigned int mvpLoc, rgbLoc;
 
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
-double mouseStartX, mouseStartY; // for camera orbit calculations
+double mouseStartX, mouseStartY, startTheta, startPhi; // for camera orbit calculations
 
 
 // updates the View matrix to the current camera position. Does not update mvp.
@@ -86,6 +86,17 @@ void update_view() {
 			glm::vec3(0, 0, 0), // looking at origin
 			glm::vec3(0, 1, 0) // +y is up
 		);
+}
+
+void reset_camera() {
+	theta = M_PI/2;
+	phi = 0;
+	radius = 4;
+
+	mouseStartX = -1;
+	mouseStartY = -1;
+	startPhi = phi;
+	startTheta = theta;
 }
 
 bool init() {
@@ -181,11 +192,9 @@ bool init() {
 
 	// Generate mvp and camera
 	Projection = glm::perspective(glm::radians(45.0f), float(SCREEN_WIDTH)/float(SCREEN_HEIGHT), 0.1f, 100.0f);
-	theta = M_PI/2;
-	phi = 0;
-	radius = 4;
-	mouseStartX = -1;
-	mouseStartY = -1;
+
+	reset_camera();
+
 	update_view();
 	Model = glm::mat4(1.0f);
 	update_mvp();
@@ -414,9 +423,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				std::cout << "restarting..." << std::endl << std::endl;
 				break;
 			case RESET_CAMERA:
-				theta = M_PI/2;
-				phi = 0;
-				radius = 4;
+				reset_camera();
 				update_view();
 				update_mvp();
 				break;
@@ -505,8 +512,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
 	if(mouseStartX >= 0 && mouseStartY >= 0) {
-		theta += (xpos - mouseStartX) * PAN_SPEED;
-		phi += (ypos - mouseStartY) * PAN_SPEED;
+		theta = (xpos - mouseStartX) * PAN_SPEED + startTheta;
+		phi = (ypos - mouseStartY) * PAN_SPEED + startPhi;
 
 		// when phi hits pi everything flips, so stop it from ocurring
 		if(phi > M_PI/2.01) phi = M_PI/2.01;
@@ -521,8 +528,11 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		glfwGetCursorPos(window, &mouseStartX, &mouseStartY);
 		return;
 	}
+
 	mouseStartX = -1;
 	mouseStartY = -1;
+	startTheta = theta;
+	startPhi = phi;
 }
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	radius += yoffset * ZOOM_SPEED;
