@@ -35,7 +35,7 @@
 #define BLOCK_POSS_1_FOCUSED_BRIGHTNESS 0.3
 
 // board color += recommendation * BOARD_POSS_ADJUST
-#define BOARD_POSS_ADJUST 0.5
+#define BOARD_POSS_ADJUST 0.8
 
 // unfocused move color *= UNFOCUSED_MOVE_DIM
 #define UNFOCUSED_MOVE_DIM 0
@@ -178,6 +178,7 @@ bool init() {
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
+	glEnable(GL_FRAMEBUFFER_SRGB);
 
 
 	// Load Shaders
