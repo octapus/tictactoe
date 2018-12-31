@@ -9,7 +9,7 @@ in vec3 Normal;
 void main() {
 	vec3 lightColor = vec3(1, 1, 1);
 
-	vec3 ambient = 0.1 * lightColor;
+	vec3 ambient = 0.6 * lightColor;
 
 	vec3 norm = normalize(Normal);
 	vec3 lightDir = normalize(cameraLightPos - FragPos);
