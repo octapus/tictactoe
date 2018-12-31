@@ -44,10 +44,13 @@
 #define turnCycle() turn = (turn == X) ? O : X;
 
 // updates the mvp matrix and sends it to the gpu.
-#define update_mvp() mvp = Projection * View * Model; glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+#define update_mvp() mvp = Projection * View * Model; glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(Model)); glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 
 // updates the rgb vector and sends it to the gpu.
 #define update_rgb(r, g, b)	glUniform3f(rgbLoc, r, g, b);
+
+// updates camera light pos and sends it to the gpu.
+#define update_camera_light_pos(x, y, z) glUniform3f(cameraLightPosLoc, x, y, z);
 
 Board board;
 Turn turn;
@@ -70,7 +73,7 @@ unsigned int O_VAO, O_VBO; // o
 GLuint shaderProgram;
 
 glm::mat4 Model, View, Projection, mvp;
-unsigned int mvpLoc, rgbLoc;
+unsigned int modelLoc, mvpLoc, rgbLoc, cameraLightPosLoc;
 
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
 double mouseStartX, mouseStartY, startTheta, startPhi; // for camera orbit calculations
@@ -86,6 +89,7 @@ void update_view() {
 			glm::vec3(0, 0, 0), // looking at origin
 			glm::vec3(0, 1, 0) // +y is up
 		);
+	update_camera_light_pos(cameraX, cameraY, cameraZ);
 }
 
 void reset_camera() {
@@ -141,9 +145,10 @@ bool init() {
 	glGenBuffers(1, &X_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, X_VBO);
 	glBufferData(GL_ARRAY_BUFFER, x_polygon_size, x_polygon, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*) 0);
-
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	// o buffers
 	glGenVertexArrays(1, &O_VAO);
@@ -152,9 +157,10 @@ bool init() {
 	glGenBuffers(1, &O_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, O_VBO);
 	glBufferData(GL_ARRAY_BUFFER, o_polygon_size, o_polygon, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*) 0);
-
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	// board buffers
 	glGenVertexArrays(1, &BOARD_VAO);
@@ -163,9 +169,10 @@ bool init() {
 	glGenBuffers(1, &BOARD_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, BOARD_VBO);
 	glBufferData(GL_ARRAY_BUFFER, board_polygon_size, board_polygon, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*) 0);
-
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DEPTH_TEST);
@@ -177,7 +184,9 @@ bool init() {
 	shaderProgram = LoadShaders("shaders/shader.vert", "shaders/shader.frag", nullptr);
 	glUseProgram(shaderProgram);
 	mvpLoc = glGetUniformLocation(shaderProgram, "mvp");
+	modelLoc = glGetUniformLocation(shaderProgram, "model");
 	rgbLoc = glGetUniformLocation(shaderProgram, "rgb");
+	cameraLightPosLoc = glGetUniformLocation(shaderProgram, "cameraLightPos");
 
 	// Generate mvp and camera
 	Projection = glm::perspective(glm::radians(45.0f), float(SCREEN_WIDTH)/float(SCREEN_HEIGHT), 0.1f, 100.0f);

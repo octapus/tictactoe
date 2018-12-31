@@ -167,51 +167,69 @@ bool build_vertices(GLfloat *vertices, GLuint *indices, int num_indices, GLfloat
 /**
  * Builds a polygon consisting of an array of interleaved positions and normals
  * vertices - array of vertices
- * indices - array of indices declaring what order to iterate through vectors. If null, vectors will be iterated through in order.
  * num_indices - number of points in polygon. polygon will be an array of size 6 * indices (1 index consists of x, y, z, Nx, Ny, Nz)
  */
-bool build_normals(GLfloat *vertices, GLuint *indices, int num_indices, GLfloat *polygon) {
-	bool use_indices = (indices != nullptr);
-	int polygon_size = 6 * num_indices;
-	if(polygon_size <= 0) {
-		printf("num_indices is %d, but it should be greater than 0 even if no indices array is used since it should count the amount of points in the polygon (and thus be vectors_size/3)\n", num_indices);
-		return false;
-	}
+bool build_normals(GLfloat *vertices, int num_indices, GLfloat *output) {
+	int output_size = 6 * num_indices;
 
 	if(num_indices % 3 != 0) {
-		printf("num_indices is %d, but it should be divisible by 3 since it should be a list of triangles\n", num_indices);
+		printf("Num indices %d is not divisible by 3. Thus, it is not a list of triangles.", num_indices);
 		return false;
 	}
 
-	for(int i = 0; i < num_indices; i += 3) { // One triangle (3 indices) at a time
-		int index = use_indices ? indices[i] : i;
-
-		for(int j = 0; j < 3; ++j) {
-			polygon[(6 * i) + j] = vertices[3 * index + j];
+	for(int i = 0; i < output_size; i += 18) {
+		std::array<GLfloat, 3> normal = norm(&vertices[i/2]);
+		for(int j = 0; j < 18; j += 6) {
+			for(int k = 0; k < 3; ++k) {
+				output[i + j + k] = vertices[i/2 + j/2 + k];
+				output[i + j + k + 3] = normal[k];
+			}
 		}
 	}
 
 	return true;
 }
 
-GLfloat board_polygon[12 * 36 * 3];
+GLfloat board_polygon[12 * 36 * 6];
 size_t board_polygon_size = sizeof(board_polygon);
 bool generate_board() {
 	generate_board_bg();
-	return build_vertices(board_vertices, board_indices, 12 * 36, board_polygon);
+
+	GLfloat board_fullvert[12 * 36 * 3];
+	return build_vertices(board_vertices, board_indices, 12 * 36, board_fullvert) && build_normals(board_fullvert, 12 * 36, board_polygon);;
+/*
+	GLfloat board_with_norms[12 * 36 * 6];
+	build_normals(board_vertices, 12 * 36, board_with_norms);
+	for(int i = 0; i < 12 * 6; ++i) {
+		if(i % 18 == 0) printf("\n");
+		if(i % 6 == 0) printf("\n");
+		if(i % 3 == 0) printf(" ");
+		printf("%f, ", board_with_norms[i]);
+	}
+
+	printf("\n\n");
+	for(int i = 0; i < 12 * 3; ++i) {
+		if(i % 9 == 0) printf("\n");
+		if(i % 3 == 0) printf("\n");
+		printf("%f, ", board_polygon[i]);
+	}
+*/
 }
 
-GLfloat x_polygon[4 * 36 * 3];
+GLfloat x_polygon[4 * 36 * 6];
 size_t x_polygon_size = sizeof(x_polygon);
 bool generate_x() {
 	generate_x_polygon();
-	return build_vertices(x_vertices, x_indices, 4 * 36, x_polygon);
+
+	GLfloat x_fullvert[4 * 36 * 3];
+	return build_vertices(x_vertices, x_indices, 4 * 36, x_fullvert) && build_normals(x_fullvert, 4 * 36, x_polygon);
 }
 
-GLfloat o_polygon[20 * 3 * 3];
+GLfloat o_polygon[20 * 3 * 6];
 size_t o_polygon_size = sizeof(o_polygon);
 bool generate_o() {
-	return build_vertices(icosahedron_vertices, icosahedron_indicies, 20 * 3, o_polygon);
+	GLfloat o_fullvert[20 * 3 * 3];
+	return build_vertices(icosahedron_vertices, icosahedron_indicies, 20 * 3, o_fullvert) && build_normals(o_fullvert, 20 * 3, o_polygon);
 }
 
 bool build_polygons() {
