@@ -64,9 +64,9 @@ bool focus_recommend = false;
 float recommendation = 0;
 
 GLFWwindow *window;
-unsigned int BOARD_VAO, BOARD_VBO, BOARD_EBO; // board
-unsigned int X_VAO, X_VBO, X_EBO; // x
-unsigned int O_VAO, O_VBO, O_EBO; // o
+unsigned int BOARD_VAO, BOARD_VBO; // board
+unsigned int X_VAO, X_VBO; // x
+unsigned int O_VAO, O_VBO; // o
 GLuint shaderProgram;
 
 glm::mat4 Model, View, Projection, mvp;
@@ -128,9 +128,10 @@ bool init() {
 	}
 
 	// build model arrays
-	std::cout << "generating models..." << std::endl;
-	generate_board_bg();
-	generate_x_polygon();
+	if(!build_polygons()) {
+		std::cerr << "Failed to build polygons" << std::endl;
+		return false;
+	}
 
 	// Generate buffers
 	// x buffers
@@ -139,12 +140,8 @@ bool init() {
 
 	glGenBuffers(1, &X_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, X_VBO);
-	glBufferData(GL_ARRAY_BUFFER, x_vertices_size, x_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &X_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, X_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, x_indices_size, x_indices, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, x_polygon_size, x_polygon, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*) 0);
 
 	glEnableVertexAttribArray(0);
 
@@ -154,12 +151,8 @@ bool init() {
 
 	glGenBuffers(1, &O_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, O_VBO);
-	glBufferData(GL_ARRAY_BUFFER, icosahedron_vertices_size, icosahedron_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &O_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, O_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, icosahedron_indicies_size, icosahedron_indicies, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, o_polygon_size, o_polygon, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*) 0);
 
 	glEnableVertexAttribArray(0);
 
@@ -169,12 +162,8 @@ bool init() {
 
 	glGenBuffers(1, &BOARD_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, BOARD_VBO);
-	glBufferData(GL_ARRAY_BUFFER, board_vertices_size, board_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &BOARD_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, BOARD_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, board_indices_size, board_indices, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, board_polygon_size, board_polygon, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*) 0);
 
 	glEnableVertexAttribArray(0);
 
@@ -204,15 +193,12 @@ bool init() {
 
 void close() {
 	glDeleteBuffers(1, &BOARD_VBO);
-	glDeleteBuffers(1, &BOARD_EBO);
 	glDeleteVertexArrays(1, &BOARD_VAO);
 
 	glDeleteBuffers(1, &X_VBO);
-	glDeleteBuffers(1, &X_EBO);
 	glDeleteVertexArrays(1, &X_VAO);
 
 	glDeleteBuffers(1, &O_VBO);
-	glDeleteBuffers(1, &O_EBO);
 	glDeleteVertexArrays(1, &O_VAO);
 
 	glDeleteProgram(shaderProgram);
@@ -320,10 +306,10 @@ void draw_specific_moves(Turn player) {
 
 					switch(player) {
 						case X:
-							glDrawElements(GL_TRIANGLES, 4*36, GL_UNSIGNED_INT, 0);
+							glDrawArrays(GL_TRIANGLES, 0, 4*36);
 							break;
 						case O:
-							glDrawElements(GL_TRIANGLES, 60, GL_UNSIGNED_INT, 0);
+							glDrawArrays(GL_TRIANGLES, 0, 60);
 							break;
 						default:
 							break;
@@ -351,7 +337,8 @@ void draw_board_background() {
 
 	update_rgb((local_w == 0) + mod, (local_w == 1) + mod, (local_w == 2) + mod);
 
-	glDrawElements(GL_TRIANGLES, 12*36, GL_UNSIGNED_INT, 0);
+	//glDrawArrays(GL_TRIANGLES, 0, 12 * 36);
+	glDrawArrays(GL_TRIANGLES, 0, 12 * 36);
 }
 
 float recommend_keys() {

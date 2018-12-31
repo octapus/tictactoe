@@ -1,5 +1,7 @@
 #include "polygons.hpp"
 
+#include<array>
+
 #include<glm/glm.hpp>
 #include<glm/gtc/matrix_transform.hpp>
 
@@ -123,11 +125,95 @@ void generate_x_polygon() {
 	}
 }
 
-size_t x_vertices_size = sizeof(x_vertices);
-size_t x_indices_size = sizeof(x_indices);
+// generates normal vector for a triangle consisting of points p1, p2, p3
+std::array<GLfloat, 3> norm(GLfloat coord[9]) {
+	std::array<GLfloat, 3> norm;
 
-size_t icosahedron_vertices_size = sizeof(icosahedron_vertices);
-size_t icosahedron_indicies_size = sizeof(icosahedron_indicies);
+	// U = p2 - p1
+	GLfloat u[3];
+	for(int i = 0; i < 3; ++i) {
+		u[i] = coord[3 + i] - coord[i];
+	}
 
-size_t board_vertices_size = sizeof(board_vertices);
-size_t board_indices_size = sizeof(board_indices);
+	// V = p3 - p1
+	GLfloat v[3];
+	for(int i = 0; i < 3; ++i) {
+		v[i] = coord[6 + i] - coord[i];
+	}
+
+	// Nx = UyVz - UzVy
+	// Ny = UzVx - UxVz
+	// Nz = UxVy - UyVx
+	norm[0] = u[1]*v[2] - u[2]*v[1];
+	norm[1] = u[2]*v[0] - u[0]*v[2];
+	norm[2] = u[0]*v[1] - u[1]*v[0];
+
+	return norm;
+}
+
+/**
+ * Converts a points array + indices array into a single point array
+ */
+bool build_vertices(GLfloat *vertices, GLuint *indices, int num_indices, GLfloat *output) {
+	int output_size = 3 * num_indices;
+
+	for(int i = 0; i < output_size; ++i) {
+		output[i] = vertices[3 * indices[i/3] + (i % 3)];
+	}
+
+	return true;
+}
+
+/**
+ * Builds a polygon consisting of an array of interleaved positions and normals
+ * vertices - array of vertices
+ * indices - array of indices declaring what order to iterate through vectors. If null, vectors will be iterated through in order.
+ * num_indices - number of points in polygon. polygon will be an array of size 6 * indices (1 index consists of x, y, z, Nx, Ny, Nz)
+ */
+bool build_normals(GLfloat *vertices, GLuint *indices, int num_indices, GLfloat *polygon) {
+	bool use_indices = (indices != nullptr);
+	int polygon_size = 6 * num_indices;
+	if(polygon_size <= 0) {
+		printf("num_indices is %d, but it should be greater than 0 even if no indices array is used since it should count the amount of points in the polygon (and thus be vectors_size/3)\n", num_indices);
+		return false;
+	}
+
+	if(num_indices % 3 != 0) {
+		printf("num_indices is %d, but it should be divisible by 3 since it should be a list of triangles\n", num_indices);
+		return false;
+	}
+
+	for(int i = 0; i < num_indices; i += 3) { // One triangle (3 indices) at a time
+		int index = use_indices ? indices[i] : i;
+
+		for(int j = 0; j < 3; ++j) {
+			polygon[(6 * i) + j] = vertices[3 * index + j];
+		}
+	}
+
+	return true;
+}
+
+GLfloat board_polygon[12 * 36 * 3];
+size_t board_polygon_size = sizeof(board_polygon);
+bool generate_board() {
+	generate_board_bg();
+	return build_vertices(board_vertices, board_indices, 12 * 36, board_polygon);
+}
+
+GLfloat x_polygon[4 * 36 * 3];
+size_t x_polygon_size = sizeof(x_polygon);
+bool generate_x() {
+	generate_x_polygon();
+	return build_vertices(x_vertices, x_indices, 4 * 36, x_polygon);
+}
+
+GLfloat o_polygon[20 * 3 * 3];
+size_t o_polygon_size = sizeof(o_polygon);
+bool generate_o() {
+	return build_vertices(icosahedron_vertices, icosahedron_indicies, 20 * 3, o_polygon);
+}
+
+bool build_polygons() {
+	return generate_board() && generate_x() && generate_o();
+}
