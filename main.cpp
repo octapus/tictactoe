@@ -44,7 +44,11 @@
 #define turnCycle() turn = (turn == X) ? O : X;
 
 // updates the mvp matrix and sends it to the gpu.
-#define update_mvp() mvp = Projection * View * Model; glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(Model)); glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+#define update_mvp() mvp = Projection * View * Model; \
+						   Normal = glm::transpose(glm::inverse(Model)); \
+						   glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(Model)); \
+						   glUniformMatrix3fv(normalLoc, 1, GL_FALSE, glm::value_ptr(Normal)); \
+						   glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 
 // updates the rgb vector and sends it to the gpu.
 #define update_rgb(r, g, b)	glUniform3f(rgbLoc, r, g, b);
@@ -73,7 +77,8 @@ unsigned int O_VAO, O_VBO; // o
 GLuint shaderProgram;
 
 glm::mat4 Model, View, Projection, mvp;
-unsigned int modelLoc, mvpLoc, rgbLoc, cameraLightPosLoc;
+glm::mat3 Normal;
+unsigned int modelLoc, normalLoc, mvpLoc, rgbLoc, cameraLightPosLoc;
 
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
 double mouseStartX, mouseStartY, startTheta, startPhi; // for camera orbit calculations
@@ -88,7 +93,7 @@ void update_view() {
 			glm::vec3(cameraX, cameraY, cameraZ), // camera pos
 			glm::vec3(0, 0, 0), // looking at origin
 			glm::vec3(0, 1, 0) // +y is up
-		);
+			);
 	update_camera_light_pos(cameraX, cameraY, cameraZ);
 }
 
@@ -185,6 +190,7 @@ bool init() {
 	glUseProgram(shaderProgram);
 	mvpLoc = glGetUniformLocation(shaderProgram, "mvp");
 	modelLoc = glGetUniformLocation(shaderProgram, "model");
+	normalLoc = glGetUniformLocation(shaderProgram, "normal");
 	rgbLoc = glGetUniformLocation(shaderProgram, "rgb");
 	cameraLightPosLoc = glGetUniformLocation(shaderProgram, "cameraLightPos");
 
@@ -311,6 +317,7 @@ void draw_specific_moves(Turn player) {
 					update_rgb(rgb[0], rgb[1], rgb[2]);
 
 					Model = glm::translate(glm::mat4(1.0f), glm::vec3(2*SCALE*(lx-1), -2*SCALE*(ly-1), 2*SCALE*(lz-1)));
+					if(player == O) Model = glm::rotate(Model, 0.3f * lx + 0.5f * ly + 0.7f * lz, glm::vec3(0.9f * (lx - 1) + 1.1f * (ly - 1) + 1.3f * (lz - 1), 1.1f * (lx - 1) + 1.3f * (ly - 1) + 0.9f * (lz - 1), 1.3f * (lx - 1) + 0.9f * (ly - 1) + 1.1f * (lz - 1)));
 					update_mvp();
 
 					switch(player) {
