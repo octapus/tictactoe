@@ -33,7 +33,7 @@ void main() {
 	diffuse *= attenuation;
 	specular *= attenuation;
 
-	vec3 result = ((ambient + diffuse) * rgb) + (specular * lightColor);
+	vec3 result = ((ambient + diffuse) * max(rgb, 0)) + (specular * lightColor);
 
 	// exposure tone mapping
 	result = vec3(1.0) - exp(-result * 1.0);

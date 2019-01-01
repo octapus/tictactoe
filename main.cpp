@@ -19,7 +19,7 @@
 #define ZOOM_SPEED 0.1
 
 // brightness values after win. FOCUS_RECOMMEND (LEFT_CTRL) to dim non-win moves.
-#define PLACE_BRIGHTNESS 0.8
+#define PLACE_BRIGHTNESS 1
 #define WIN_BRIGHTNESS 1
 #define KEY_BRIGHTNESS 1
 
@@ -32,7 +32,7 @@
 #define KEY_POSS_1_BRIGHTNESS 0
 #define KEY_POSS_1_FOCUSED_BRIGHTNESS 0.5
 #define BLOCK_POSS_1_BRIGHTNESS 0
-#define BLOCK_POSS_1_FOCUSED_BRIGHTNESS 0.3
+#define BLOCK_POSS_1_FOCUSED_BRIGHTNESS 0.2
 
 // board color += recommendation * BOARD_POSS_ADJUST
 #define BOARD_POSS_ADJUST 0.8
@@ -42,13 +42,6 @@
 
 // Switches turns (just in case more players are added)
 #define turnCycle() turn = (turn == X) ? O : X;
-
-// updates the mvp matrix and sends it to the gpu.
-#define update_mvp() mvp = Projection * View * Model; \
-						   Normal = glm::transpose(glm::inverse(Model)); \
-						   glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(Model)); \
-						   glUniformMatrix3fv(normalLoc, 1, GL_FALSE, glm::value_ptr(Normal)); \
-						   glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 
 // updates the rgb vector and sends it to the gpu.
 #define update_rgb(r, g, b)	glUniform3f(rgbLoc, r, g, b);
@@ -95,6 +88,16 @@ void update_view() {
 			glm::vec3(0, 1, 0) // +y is up
 			);
 	update_camera_light_pos(cameraX, cameraY, cameraZ);
+}
+
+// updates the mvp matrix and related values and sends them to the gpu.
+void update_mvp() {
+	mvp = Projection * View * Model;
+	Normal = glm::transpose(glm::inverse(Model));
+
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(Model));
+	glUniformMatrix3fv(normalLoc, 1, GL_FALSE, glm::value_ptr(Normal));
+	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 }
 
 void reset_camera() {
@@ -317,7 +320,7 @@ void draw_specific_moves(Turn player) {
 					update_rgb(rgb[0], rgb[1], rgb[2]);
 
 					Model = glm::translate(glm::mat4(1.0f), glm::vec3(2*SCALE*(lx-1), -2*SCALE*(ly-1), 2*SCALE*(lz-1)));
-					if(player == O) Model = glm::rotate(Model, 0.3f * lx + 0.5f * ly + 0.7f * lz, glm::vec3(0.9f * (lx - 1) + 1.1f * (ly - 1) + 1.3f * (lz - 1), 1.1f * (lx - 1) + 1.3f * (ly - 1) + 0.9f * (lz - 1), 1.3f * (lx - 1) + 0.9f * (ly - 1) + 1.1f * (lz - 1)));
+					if(player == O) Model = glm::rotate(Model, 0.3f * lx + 0.5f * ly + 0.7f * lz, glm::vec3(0.9f * (lx - 1.1) + 1.1f * (ly - 1) + 1.3f * (lz - 1), 1.1f * (lx - 1) + 1.3f * (ly - 1) + 0.9f * (lz - 1), 1.3f * (lx - 1) + 0.9f * (ly - 1) + 1.1f * (lz - 1))); // rotate O model randomly based on location
 					update_mvp();
 
 					switch(player) {
