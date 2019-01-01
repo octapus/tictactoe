@@ -7,26 +7,39 @@ in vec3 FragPos;
 in vec3 Normal;
 
 void main() {
+	const float gamma = 2.2;
+
 	vec3 lightColor = vec3(1, 1, 1);
 
-	vec3 ambient = 0.3 * lightColor;
+	// ambient
+	vec3 ambient = 0.2 * lightColor;
 
+	// diffuse
 	vec3 norm = normalize(Normal);
 	vec3 lightDir = normalize(cameraLightPos - FragPos);
 	float diff = max(dot(norm, lightDir), 0.0);
-	vec3 diffuse = diff * lightColor;
+	vec3 diffuse = 9.0 * diff * lightColor;
 
+	// specular
 	vec3 viewPos = cameraLightPos;
 	vec3 viewDir = normalize(viewPos - FragPos);
 	vec3 reflectDir = reflect(-lightDir, norm);
 	float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-	vec3 specular = 0.4 * spec * lightColor;
+	vec3 specular = 0.6 * spec * lightColor;
 
+	// attenuation
 	float distance = length(cameraLightPos - FragPos);
-	float attenuation = 5.0 / (distance * distance);
+	float attenuation = 1.0 / (distance * distance);
 	diffuse *= attenuation;
 	specular *= attenuation;
 
 	vec3 result = ((ambient + diffuse) * rgb) + (specular * lightColor);
+
+	// exposure tone mapping
+	result = vec3(1.0) - exp(-result * 1.0);
+
+	// gamma correction
+	result = pow(result, vec3(1.0 / gamma));
+
 	fragColor = vec4(result, 1.0);
 }
