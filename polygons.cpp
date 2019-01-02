@@ -151,6 +151,54 @@ std::array<GLfloat, 3> norm(GLfloat coord[9]) {
 	return norm;
 }
 
+// https://math.stackexchange.com/questions/17561/how-to-shrink-a-triangle
+std::array<GLfloat, 9> dilate(GLfloat coord[9], float amount) {
+	std::array<GLfloat, 9> result;
+
+	glm::vec3 points[3] = { glm::vec3(coord[0], coord[1], coord[2]),
+		glm::vec3(coord[3], coord[4], coord[5]),
+		glm::vec3(coord[6], coord[7], coord[8]) };
+	float sides[3] = { glm::distance(points[0], points[1]),
+		glm::distance(points[1], points[2]),
+		glm::distance(points[2], points[0]) };
+
+	float P = sides[0] + sides[1] + sides[2]; // perimeter = sum of sides
+	float S = sqrt(P/2 * (P/2 - sides[0]) * (P/2 - sides[1]) * (P/2 - sides[2])); // Area using Heron's formula
+
+	float R = 2 * S / P;
+
+	//glm::vec3 Q = (points[0] + points[1] + points[2]) / glm::vec3(3); // centroid
+
+	glm::vec3 Q = (points[0] * sides[1] + points[1] * sides[2] + points[2] * sides[0]) / glm::vec3(P); // incenter
+
+	float k = R / (R - amount);
+	for(int i = 0; i < 3; ++i) {
+		glm::vec3 shifted = points[i] + (Q - points[i]) * glm::vec3(k);
+		result[3 * i] = shifted.x;
+		result[3 * i + 1] = shifted.y;
+		result[3 * i + 2] = shifted.z;
+	}
+
+	return result;
+}
+
+bool build_dilated(GLfloat *full_vertices, int num_indices, float amount, GLfloat *output) {
+	int output_size = 3 * num_indices;
+	if(output_size % 9 != 0) {
+		printf("Num indices is %d and is not divisible by 3. This is not an array of triangles.", num_indices);
+		return false;
+	}
+
+	for(int i = 0; i < output_size; i += 9) {
+		std::array<GLfloat, 9> dilated = dilate(&full_vertices[i], amount);
+		for(int j = 0; j < 9; ++j) {
+			output[i + j] = dilated[j];
+		}
+	}
+
+	return true;
+}
+
 /**
  * Converts a points array + indices array into a single point array
  */
@@ -222,14 +270,18 @@ bool generate_x() {
 	generate_x_polygon();
 
 	GLfloat x_fullvert[4 * 36 * 3];
-	return build_vertices(x_vertices, x_indices, 4 * 36, x_fullvert) && build_normals(x_fullvert, 4 * 36, x_polygon);
+	return build_vertices(x_vertices, x_indices, 4 * 36, x_fullvert)
+		&& build_dilated(x_fullvert, 4 * 36, -0.1, x_fullvert)
+		&& build_normals(x_fullvert, 4 * 36, x_polygon);
 }
 
 GLfloat o_polygon[20 * 3 * 6];
 size_t o_polygon_size = sizeof(o_polygon);
 bool generate_o() {
 	GLfloat o_fullvert[20 * 3 * 3];
-	return build_vertices(icosahedron_vertices, icosahedron_indicies, 20 * 3, o_fullvert) && build_normals(o_fullvert, 20 * 3, o_polygon);
+	return build_vertices(icosahedron_vertices, icosahedron_indicies, 20 * 3, o_fullvert)
+		&& build_dilated(o_fullvert, 20 * 3, -0.8, o_fullvert)
+		&& build_normals(o_fullvert, 20 * 3, o_polygon);
 }
 
 bool build_polygons() {
