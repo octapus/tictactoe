@@ -10,8 +10,9 @@
 6. Press escape to quit. More keybindings can be found in `keybinds.cpp` and `keybinds.hpp`.
 
 ### Installation
-Dependencies: opengl, glew, glfw.
-Clone the repositiory and run `make all` in the directory. This should compile the code, creating some object files (ending in `.o`) and an executable named `toe`, which can be run to play the game.
+Dependencies: opengl, glew, glfw.  
+Clone the repositiory and run `make all` in the directory. This should compile the code, creating some object files (ending in `.o`) and an executable named `toe`, which can be run to play the game.  
+Using the lighting branch is recommended since it looks slightly better.
 
 ### Example wins
 X wins with final move green center top right (Y)  
