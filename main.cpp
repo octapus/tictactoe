@@ -19,7 +19,7 @@
 #define ZOOM_SPEED 0.1
 
 // brightness values after win. FOCUS_RECOMMEND (LEFT_CTRL) to dim non-win moves.
-#define PLACE_BRIGHTNESS 0.8
+#define PLACE_BRIGHTNESS 1
 #define WIN_BRIGHTNESS 1
 #define KEY_BRIGHTNESS 1
 
@@ -32,10 +32,10 @@
 #define KEY_POSS_1_BRIGHTNESS 0
 #define KEY_POSS_1_FOCUSED_BRIGHTNESS 0.5
 #define BLOCK_POSS_1_BRIGHTNESS 0
-#define BLOCK_POSS_1_FOCUSED_BRIGHTNESS 0.3
+#define BLOCK_POSS_1_FOCUSED_BRIGHTNESS 0.2
 
 // board color += recommendation * BOARD_POSS_ADJUST
-#define BOARD_POSS_ADJUST 0.5
+#define BOARD_POSS_ADJUST 0.8
 
 // unfocused move color *= UNFOCUSED_MOVE_DIM
 #define UNFOCUSED_MOVE_DIM 0
@@ -43,11 +43,11 @@
 // Switches turns (just in case more players are added)
 #define turnCycle() turn = (turn == X) ? O : X;
 
-// updates the mvp matrix and sends it to the gpu.
-#define update_mvp() mvp = Projection * View * Model; glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
-
 // updates the rgb vector and sends it to the gpu.
 #define update_rgb(r, g, b)	glUniform3f(rgbLoc, r, g, b);
+
+// updates camera light pos and sends it to the gpu.
+#define update_camera_light_pos(x, y, z) glUniform3f(cameraLightPosLoc, x, y, z);
 
 Board board;
 Turn turn;
@@ -63,14 +63,17 @@ bool key_1_recommend = false, block_1_recommend = false;
 bool focus_recommend = false;
 float recommendation = 0;
 
+bool automove_cont = false;
+
 GLFWwindow *window;
-unsigned int BOARD_VAO, BOARD_VBO, BOARD_EBO; // board
-unsigned int X_VAO, X_VBO, X_EBO; // x
-unsigned int O_VAO, O_VBO, O_EBO; // o
+unsigned int BOARD_VAO, BOARD_VBO; // board
+unsigned int X_VAO, X_VBO; // x
+unsigned int O_VAO, O_VBO; // o
 GLuint shaderProgram;
 
 glm::mat4 Model, View, Projection, mvp;
-unsigned int mvpLoc, rgbLoc;
+glm::mat3 Normal;
+unsigned int modelLoc, normalLoc, mvpLoc, rgbLoc, cameraLightPosLoc;
 
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
 double mouseStartX, mouseStartY, startTheta, startPhi; // for camera orbit calculations
@@ -85,7 +88,18 @@ void update_view() {
 			glm::vec3(cameraX, cameraY, cameraZ), // camera pos
 			glm::vec3(0, 0, 0), // looking at origin
 			glm::vec3(0, 1, 0) // +y is up
-		);
+			);
+	update_camera_light_pos(cameraX, cameraY, cameraZ);
+}
+
+// updates the mvp matrix and related values and sends them to the gpu.
+void update_mvp() {
+	mvp = Projection * View * Model;
+	Normal = glm::transpose(glm::inverse(Model));
+
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(Model));
+	glUniformMatrix3fv(normalLoc, 1, GL_FALSE, glm::value_ptr(Normal));
+	glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 }
 
 void reset_camera() {
@@ -128,9 +142,10 @@ bool init() {
 	}
 
 	// build model arrays
-	std::cout << "generating models..." << std::endl;
-	generate_board_bg();
-	generate_x_polygon();
+	if(!build_polygons()) {
+		std::cerr << "Failed to build polygons" << std::endl;
+		return false;
+	}
 
 	// Generate buffers
 	// x buffers
@@ -139,14 +154,11 @@ bool init() {
 
 	glGenBuffers(1, &X_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, X_VBO);
-	glBufferData(GL_ARRAY_BUFFER, x_vertices_size, x_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &X_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, X_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, x_indices_size, x_indices, GL_DYNAMIC_DRAW);
-
+	glBufferData(GL_ARRAY_BUFFER, x_polygon_size, x_polygon, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	// o buffers
 	glGenVertexArrays(1, &O_VAO);
@@ -154,14 +166,11 @@ bool init() {
 
 	glGenBuffers(1, &O_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, O_VBO);
-	glBufferData(GL_ARRAY_BUFFER, icosahedron_vertices_size, icosahedron_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &O_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, O_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, icosahedron_indicies_size, icosahedron_indicies, GL_DYNAMIC_DRAW);
-
+	glBufferData(GL_ARRAY_BUFFER, o_polygon_size, o_polygon, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	// board buffers
 	glGenVertexArrays(1, &BOARD_VAO);
@@ -169,14 +178,11 @@ bool init() {
 
 	glGenBuffers(1, &BOARD_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, BOARD_VBO);
-	glBufferData(GL_ARRAY_BUFFER, board_vertices_size, board_vertices, GL_DYNAMIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-	glGenBuffers(1, &BOARD_EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, BOARD_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, board_indices_size, board_indices, GL_DYNAMIC_DRAW);
-
+	glBufferData(GL_ARRAY_BUFFER, board_polygon_size, board_polygon, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DEPTH_TEST);
@@ -188,7 +194,10 @@ bool init() {
 	shaderProgram = LoadShaders("shaders/shader.vert", "shaders/shader.frag", nullptr);
 	glUseProgram(shaderProgram);
 	mvpLoc = glGetUniformLocation(shaderProgram, "mvp");
+	modelLoc = glGetUniformLocation(shaderProgram, "model");
+	normalLoc = glGetUniformLocation(shaderProgram, "normal");
 	rgbLoc = glGetUniformLocation(shaderProgram, "rgb");
+	cameraLightPosLoc = glGetUniformLocation(shaderProgram, "cameraLightPos");
 
 	// Generate mvp and camera
 	Projection = glm::perspective(glm::radians(45.0f), float(SCREEN_WIDTH)/float(SCREEN_HEIGHT), 0.1f, 100.0f);
@@ -204,15 +213,12 @@ bool init() {
 
 void close() {
 	glDeleteBuffers(1, &BOARD_VBO);
-	glDeleteBuffers(1, &BOARD_EBO);
 	glDeleteVertexArrays(1, &BOARD_VAO);
 
 	glDeleteBuffers(1, &X_VBO);
-	glDeleteBuffers(1, &X_EBO);
 	glDeleteVertexArrays(1, &X_VAO);
 
 	glDeleteBuffers(1, &O_VBO);
-	glDeleteBuffers(1, &O_EBO);
 	glDeleteVertexArrays(1, &O_VAO);
 
 	glDeleteProgram(shaderProgram);
@@ -316,14 +322,15 @@ void draw_specific_moves(Turn player) {
 					update_rgb(rgb[0], rgb[1], rgb[2]);
 
 					Model = glm::translate(glm::mat4(1.0f), glm::vec3(2*SCALE*(lx-1), -2*SCALE*(ly-1), 2*SCALE*(lz-1)));
+					if(player == O) Model = glm::rotate(Model, 0.3f * lx + 0.5f * ly + 0.7f * lz, glm::vec3(0.9f * (lx - 1.1) + 1.1f * (ly - 1) + 1.3f * (lz - 1), 1.1f * (lx - 1) + 1.3f * (ly - 1) + 0.9f * (lz - 1), 1.3f * (lx - 1) + 0.9f * (ly - 1) + 1.1f * (lz - 1))); // rotate O model randomly based on location
 					update_mvp();
 
 					switch(player) {
 						case X:
-							glDrawElements(GL_TRIANGLES, 4*36, GL_UNSIGNED_INT, 0);
+							glDrawArrays(GL_TRIANGLES, 0, 4*36);
 							break;
 						case O:
-							glDrawElements(GL_TRIANGLES, 60, GL_UNSIGNED_INT, 0);
+							glDrawArrays(GL_TRIANGLES, 0, 60);
 							break;
 						default:
 							break;
@@ -351,7 +358,8 @@ void draw_board_background() {
 
 	update_rgb((local_w == 0) + mod, (local_w == 1) + mod, (local_w == 2) + mod);
 
-	glDrawElements(GL_TRIANGLES, 12*36, GL_UNSIGNED_INT, 0);
+	//glDrawArrays(GL_TRIANGLES, 0, 12 * 36);
+	glDrawArrays(GL_TRIANGLES, 0, 12 * 36);
 }
 
 float recommend_keys() {
@@ -387,6 +395,45 @@ float recommend_keys() {
 	recommendation = result;
 	return result;
 }
+std::array<int, 4> automove() {
+	board.clearRecs();
+
+	if(board.possibleKeys(turn, true, 0)
+			|| board.possibleBlocks(turn, true, 0)
+			|| board.possibleKeys(turn, true, 1)
+			|| board.possibleBlocks(turn, true, 1)) {
+		for(int x = 0; x < 3; ++x) {
+			for(int y = 0; y < 3; ++y) {
+				for(int z = 0; z < 3; ++z) {
+					for(int w = 0; w < 3; ++w) {
+						if(board.get(x, y, z, w).state == CellState::KEY_POSS
+								|| board.get(x, y, z, w).state == CellState::BLOCK_POSS
+								|| board.get(x, y, z, w).state == CellState::KEY_POSS_1
+								|| board.get(x, y, z, w).state == CellState::BLOCK_POSS_1) {
+							recommend_keys();
+							return { x, y, z, w };
+						}
+					}
+				}
+			}
+		}
+	}
+
+	int x = rand() % 3;
+	int y = rand() % 3;
+	int z = rand() % 3;
+	int w = rand() % 3;
+	int timeout = 81;
+	while(timeout > 0 && board.get(x, y, z, w).state == CellState::PLACE) {
+		x = (x + 1) % 3;
+		y = ((x == 0) + y + 1) % 3;
+		z = ((y == 0) + z + 1) % 3;
+		w = ((z == 0) + w + 1) % 3;
+		--timeout;
+	}
+
+	return { x, y, z, w };
+}
 
 void undo() {
 	if(moveHistoryIndex >= 0) {
@@ -410,6 +457,31 @@ void restart() {
 	won = false;
 	moveHistoryIndex = -1;
 	recommendation = 0;
+}
+int place_move(int x, int y, int z, int w) {
+	if(board.get(x, y, z, w).state != CellState::PLACE) { // if valid move
+		// add to move history
+		moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
+		moveHistory.push_back({x, y, z, w});
+		moveHistoryIndex = moveHistory.size() - 1;
+
+		// place move and check for a win
+		if(board.move(x, y, z, w, turn)) {
+			won = true;
+			board.clearRecs();
+			std::cout << board << std::endl;
+		}
+
+		// change turn
+		turnCycle();
+
+		// show recommendations
+		recommend_keys();
+
+		return 1;
+	}
+
+	return 0;
 }
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
@@ -458,6 +530,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			case FOCUS_RECOMMEND:
 				focus_recommend = true;
 				break;
+			case AUTOMOVE_TOGGLE:
+				automove_cont = !automove_cont;
+				break;
 			case UNDO:
 				if(won) {
 					won = false;
@@ -469,27 +544,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				redo();
 				break;
 			default:
-				if(!won && keybinds.find(key) != keybinds.end()) {
-					std::array<int, 3> move = keybinds[key];
-					if(board.get(move[0], move[1], move[2], w).state != CellState::PLACE) { // if valid move
-						// add to move history
-						moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
-						moveHistory.push_back({move[0], move[1], move[2], w});
-						moveHistoryIndex = moveHistory.size() - 1;
-
-						// place move and check for a win
-						if(board.move(move[0], move[1], move[2], w, turn)) {
-							won = true;
-							board.clearRecs();
-							std::cout << board << std::endl;
-						}
-
-						// change turn
-						turnCycle();
-
-						// show recommendations
-						recommend_keys();
+				if(!won) {
+					if(key == AUTOMOVE_SINGLE) {
+						std::array<int, 4> move = automove();
+						place_move(move[0], move[1], move[2], move[3]);
+					} else if(keybinds.find(key) != keybinds.end()) {
+						std::array<int, 3> move = keybinds[key];
+						place_move(move[0], move[1], move[2], w);
 					}
+				}
+
+				if(!won && automove_cont) {
+					std::array<int, 4> move = automove();
+					place_move(move[0], move[1], move[2], move[3]);
 				}
 				break;
 		}

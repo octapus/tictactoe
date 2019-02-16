@@ -19,6 +19,9 @@
 #define RECOMMEND_KEY_1 GLFW_KEY_3
 #define RECOMMEND_BLOCK_1 GLFW_KEY_4
 
+#define AUTOMOVE_SINGLE GLFW_KEY_9
+#define AUTOMOVE_TOGGLE GLFW_KEY_0
+
 #define FOCUS_RECOMMEND GLFW_KEY_LEFT_CONTROL
 
 extern std::unordered_map<int, std::array<int, 3>> keybinds;
