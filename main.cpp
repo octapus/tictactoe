@@ -63,6 +63,8 @@ bool key_1_recommend = false, block_1_recommend = false;
 bool focus_recommend = false;
 float recommendation = 0;
 
+bool automove_cont = false;
+
 GLFWwindow *window;
 unsigned int BOARD_VAO, BOARD_VBO; // board
 unsigned int X_VAO, X_VBO; // x
@@ -528,6 +530,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			case FOCUS_RECOMMEND:
 				focus_recommend = true;
 				break;
+			case AUTOMOVE_TOGGLE:
+				automove_cont = !automove_cont;
+				break;
 			case UNDO:
 				if(won) {
 					won = false;
@@ -547,6 +552,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 						std::array<int, 3> move = keybinds[key];
 						place_move(move[0], move[1], move[2], w);
 					}
+				}
+
+				if(!won && automove_cont) {
+					std::array<int, 4> move = automove();
+					place_move(move[0], move[1], move[2], move[3]);
 				}
 				break;
 		}
