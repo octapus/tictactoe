@@ -4,6 +4,10 @@
 #include "polygons.hpp"
 #include "keybinds.hpp"
 
+// 2000 test: X (0.5525) O (0.4475)
+#include<chrono>
+#include<thread>
+
 #include<glm/glm.hpp>
 #include<glm/gtc/matrix_transform.hpp>
 #include<glm/gtc/type_ptr.hpp>
@@ -633,8 +637,9 @@ int main() {
 		// Main loop
 		quit = false;
 		won = false;
+		int xWin = 0, yWin = 0;
 		while(!glfwWindowShouldClose(window) && !quit) {
-			glfwWaitEvents();
+			glfwPollEvents();
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -642,9 +647,22 @@ int main() {
 			draw_specific_moves(X);
 			draw_specific_moves(O);
 
+			std::this_thread::sleep_for(std::chrono::milliseconds(20));
+			if(!won) {
+				std::array<int, 4> move = automove();
+				place_move(move[0], move[1], move[2], move[3]);
+			} else {
+				if(turn == X) ++yWin;
+				else ++xWin;
+				printf("x: %d\t o: %d\n", xWin, yWin);
+				restart();
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			}
+
 			glfwSwapBuffers(window);
 		}
 
+		printf("x: %d\t o: %d\n", xWin, yWin);
 		return EXIT_SUCCESS;
 	}
 }
