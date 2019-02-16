@@ -393,6 +393,32 @@ float recommend_keys() {
 	recommendation = result;
 	return result;
 }
+std::array<int, 4> automove() {
+	board.clearRecs();
+
+	if(board.possibleKeys(turn, true, 0)
+			|| board.possibleBlocks(turn, true, 0)
+			|| board.possibleKeys(turn, true, 1)
+			|| board.possibleBlocks(turn, true, 1)) {
+		for(int x = 0; x < 3; ++x) {
+			for(int y = 0; y < 3; ++y) {
+				for(int z = 0; z < 3; ++z) {
+					for(int w = 0; w < 3; ++w) {
+						if(board.get(x, y, z, w).state == CellState::KEY_POSS
+								|| board.get(x, y, z, w).state == CellState::BLOCK_POSS
+								|| board.get(x, y, z, w).state == CellState::KEY_POSS_1
+								|| board.get(x, y, z, w).state == CellState::BLOCK_POSS_1) {
+							recommend_keys();
+							return { x, y, z, w };
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return { 0, 0, 0, 0 };
+}
 
 void undo() {
 	if(moveHistoryIndex >= 0) {
@@ -416,6 +442,31 @@ void restart() {
 	won = false;
 	moveHistoryIndex = -1;
 	recommendation = 0;
+}
+int place_move(int x, int y, int z, int w) {
+	if(board.get(x, y, z, w).state != CellState::PLACE) { // if valid move
+		// add to move history
+		moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
+		moveHistory.push_back({x, y, z, w});
+		moveHistoryIndex = moveHistory.size() - 1;
+
+		// place move and check for a win
+		if(board.move(x, y, z, w, turn)) {
+			won = true;
+			board.clearRecs();
+			std::cout << board << std::endl;
+		}
+
+		// change turn
+		turnCycle();
+
+		// show recommendations
+		recommend_keys();
+
+		return 1;
+	}
+
+	return 0;
 }
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
@@ -475,26 +526,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				redo();
 				break;
 			default:
-				if(!won && keybinds.find(key) != keybinds.end()) {
-					std::array<int, 3> move = keybinds[key];
-					if(board.get(move[0], move[1], move[2], w).state != CellState::PLACE) { // if valid move
-						// add to move history
-						moveHistory.erase(moveHistory.begin() + moveHistoryIndex + 1, moveHistory.end());
-						moveHistory.push_back({move[0], move[1], move[2], w});
-						moveHistoryIndex = moveHistory.size() - 1;
-
-						// place move and check for a win
-						if(board.move(move[0], move[1], move[2], w, turn)) {
-							won = true;
-							board.clearRecs();
-							std::cout << board << std::endl;
-						}
-
-						// change turn
-						turnCycle();
-
-						// show recommendations
-						recommend_keys();
+				if(!won) {
+					if(key == AUTOMOVE_SINGLE) {
+						std::array<int, 4> move = automove();
+						place_move(move[0], move[1], move[2], move[3]);
+					} else if(keybinds.find(key) != keybinds.end()) {
+						std::array<int, 3> move = keybinds[key];
+						place_move(move[0], move[1], move[2], w);
 					}
 				}
 				break;
