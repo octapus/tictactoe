@@ -417,7 +417,20 @@ std::array<int, 4> automove() {
 		}
 	}
 
-	return { 0, 0, 0, 0 };
+	int x = rand() % 3;
+	int y = rand() % 3;
+	int z = rand() % 3;
+	int w = rand() % 3;
+	int timeout = 81;
+	while(timeout > 0 && board.get(x, y, z, w).state == CellState::PLACE) {
+		x = (x + 1) % 3;
+		y = ((x == 0) + y + 1) % 3;
+		z = ((y == 0) + z + 1) % 3;
+		w = ((z == 0) + w + 1) % 3;
+		--timeout;
+	}
+
+	return { x, y, z, w };
 }
 
 void undo() {
