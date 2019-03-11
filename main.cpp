@@ -456,7 +456,7 @@ void undo() {
 void redo() {
 	if(moveHistoryIndex < (int) (moveHistory.size()) - 1) {
 		std::array<int, 4> priorMove = moveHistory.at(++moveHistoryIndex);
-		if(board.move(priorMove[0], priorMove[1], priorMove[2], priorMove[3], turn)) won = true;
+		if(board.move(priorMove, turn)) won = true;
 		turnCycle();
 		if(!won) recommend_keys();
 	}
@@ -492,6 +492,9 @@ int place_move(int x, int y, int z, int w) {
 	}
 
 	return 0;
+}
+int place_move(std::array<int, 4> &move) {
+	return place_move(move[0], move[1], move[2], move[3]);
 }
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
@@ -558,7 +561,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					if(key == AUTOMOVE_SINGLE) {
 						std::array<int, 4> move;
 						if(automove(&move) || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
-							place_move(move[0], move[1], move[2], move[3]);
+							place_move(move);
 						}
 					} else if(keybinds.find(key) != keybinds.end()) {
 						std::array<int, 3> move = keybinds[key];
@@ -569,7 +572,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if(!won && automove_cont) {
 					std::array<int, 4> move;
 					if(automove(&move) || randmove(&move)) { // automove if possible, random otherwise (short circuit)
-						place_move(move[0], move[1], move[2], move[3]);
+						place_move(move);
 					}
 				}
 				break;

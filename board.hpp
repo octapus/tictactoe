@@ -21,6 +21,7 @@ class Board {
 	public:
 		Board();
 		bool move(int x, int y, int z, int w, Turn turn);
+		bool move(std::array<int, 4> &move, Turn turn);
 		void remove(int x, int y, int z, int w);
 		CellState get(int x, int y, int z, int w) { return board[x][y][z][w]; }
 		int possibleKeys(Turn turn, bool mark, int layer);

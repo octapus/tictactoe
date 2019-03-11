@@ -137,6 +137,9 @@ bool Board::move(int x, int y, int z, int w, Turn turn) {
 
 	return false;
 }
+bool Board::move(std::array<int, 4> &move, Turn turn) {
+	return this->move(move[0], move[1], move[2], move[3], turn);
+}
 
 void Board::remove(int x, int y, int z, int w) {
 	clearRecs();
