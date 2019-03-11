@@ -395,13 +395,17 @@ float recommend_keys() {
 	recommendation = result;
 	return result;
 }
-std::array<int, 4> automove() {
+int automove(std::array<int, 4> *result) {
 	board.clearRecs();
 
-	if(board.possibleKeys(turn, true, 0)
-			|| board.possibleBlocks(turn, true, 0)
-			|| board.possibleKeys(turn, true, 1)
-			|| board.possibleBlocks(turn, true, 1)) {
+	int possible_moves;
+	if((possible_moves = board.possibleKeys(turn, true, 0))
+			|| (possible_moves = board.possibleBlocks(turn, true, 0))
+			|| (possible_moves = board.possibleKeys(turn, true, 1))
+			|| (possible_moves = board.possibleBlocks(turn, true, 1))) {
+
+		if(result == nullptr) return possible_moves;
+
 		for(int x = 0; x < 3; ++x) {
 			for(int y = 0; y < 3; ++y) {
 				for(int z = 0; z < 3; ++z) {
@@ -410,8 +414,9 @@ std::array<int, 4> automove() {
 								|| board.get(x, y, z, w).state == CellState::BLOCK_POSS
 								|| board.get(x, y, z, w).state == CellState::KEY_POSS_1
 								|| board.get(x, y, z, w).state == CellState::BLOCK_POSS_1) {
+							*result = { x, y, z, w };
 							recommend_keys();
-							return { x, y, z, w };
+							return possible_moves;
 						}
 					}
 				}
@@ -419,20 +424,25 @@ std::array<int, 4> automove() {
 		}
 	}
 
+	recommend_keys();
+	return 0;
+}
+int randmove(std::array<int, 4> *result) {
 	int x = rand() % 3;
 	int y = rand() % 3;
 	int z = rand() % 3;
 	int w = rand() % 3;
-	int timeout = 81;
-	while(timeout > 0 && board.get(x, y, z, w).state == CellState::PLACE) {
+	int counter = 0;
+	while(counter < 81 && board.get(x, y, z, w).state == CellState::PLACE) {
 		x = (x + 1) % 3;
 		y = ((x == 0) + y + 1) % 3;
 		z = ((y == 0) + z + 1) % 3;
 		w = ((z == 0) + w + 1) % 3;
-		--timeout;
+		++counter;
 	}
 
-	return { x, y, z, w };
+	if(result != nullptr) *result = { x, y, z, w };
+	return 81 - counter;
 }
 
 void undo() {
@@ -546,8 +556,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			default:
 				if(!won) {
 					if(key == AUTOMOVE_SINGLE) {
-						std::array<int, 4> move = automove();
-						place_move(move[0], move[1], move[2], move[3]);
+						std::array<int, 4> move;
+						if(automove(&move) || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
+							place_move(move[0], move[1], move[2], move[3]);
+						}
 					} else if(keybinds.find(key) != keybinds.end()) {
 						std::array<int, 3> move = keybinds[key];
 						place_move(move[0], move[1], move[2], w);
@@ -555,8 +567,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				}
 
 				if(!won && automove_cont) {
-					std::array<int, 4> move = automove();
-					place_move(move[0], move[1], move[2], move[3]);
+					std::array<int, 4> move;
+					if(automove(&move) || randmove(&move)) { // automove if possible, random otherwise (short circuit)
+						place_move(move[0], move[1], move[2], move[3]);
+					}
 				}
 				break;
 		}
