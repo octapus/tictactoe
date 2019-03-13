@@ -12,6 +12,9 @@
 #include<vector>
 #include "board.hpp"
 
+#include<thread>
+#include<atomic>
+
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 800
 
@@ -78,6 +81,7 @@ unsigned int modelLoc, normalLoc, mvpLoc, rgbLoc, cameraLightPosLoc;
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
 double mouseStartX, mouseStartY, startTheta, startPhi; // for camera orbit calculations
 
+std::atomic<bool> calculating_move(false);
 
 // updates the View matrix to the current camera position. Does not update mvp.
 void update_view() {
@@ -447,7 +451,10 @@ int randmove(std::array<int, 4> *result) {
 	if(result != nullptr) *result = { x, y, z, w };
 	return 81 - counter;
 }
-// Automoves if possible. Otherwise predicts depth moves ahead
+/* Automoves if possible. Otherwise predicts depth moves ahead.
+ * Agressive. Only checks wins playing against the best moves.
+ * Will try to get the best outcome (win > tie > loss) in the shortest amount of moves
+ */
 int rand_predictmove(std::array<int, 4> *result, int depth) {
 	if(automove(result)) {
 		return 1;
@@ -469,13 +476,6 @@ int rand_predictmove(std::array<int, 4> *result, int depth) {
 						turnCycle();
 						std::array<int, 4> next;
 						for(int i = 1; i <= depth && !(best == 2 && i >= best_len); ++i) {
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-			draw_board_background();
-			draw_specific_moves(X);
-			draw_specific_moves(O);
-
-			glfwSwapBuffers(window);
 							if(automove(&next) || randmove(&next)) {
 								if(board.possibleKeys(turn, false, 0)) {
 									if(turn == org_turn) {
@@ -564,6 +564,18 @@ int place_move(int x, int y, int z, int w) {
 int place_move(std::array<int, 4> &move) {
 	return place_move(move[0], move[1], move[2], move[3]);
 }
+void *thread_automove() {
+	calculating_move = true;
+	std::array<int, 4> move;
+	int pred;
+	printf("Here!\n");
+	printf("%c rand: %d\n", turn == X ? 'X' : 'O', (pred = rand_predictmove(&move, 25)));
+	if(pred || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
+		place_move(move);
+	}
+	calculating_move = false;
+	return NULL;
+}
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
 		switch(key) {
@@ -625,21 +637,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				redo();
 				break;
 			default:
-				if(!won) {
+				if(!won && !calculating_move) {
 					if(key == AUTOMOVE_SINGLE) {
-						std::array<int, 4> move;
-						int pred;
-						printf("%c rand: %d\n", turn == X ? 'X' : 'O', (pred = rand_predictmove(&move, 15)));
-						if(pred || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
-							place_move(move);
-						}
+						std::thread t1(thread_automove);
+						t1.detach();
 					} else if(keybinds.find(key) != keybinds.end()) {
 						std::array<int, 3> move = keybinds[key];
 						place_move(move[0], move[1], move[2], w);
 					}
 				}
 
-				if(!won && automove_cont) {
+				if(!won && !calculating_move && automove_cont) {
 					std::array<int, 4> move;
 					if(automove(&move) || randmove(&move)) { // automove if possible, random otherwise (short circuit)
 						place_move(move);

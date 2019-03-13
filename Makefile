@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-c -Wall
-LDFLAGS=-lglfw -lGL -lGLEW
+LDFLAGS=-lglfw -lGL -lGLEW -pthread
 SOURCES=main.cpp board.cpp board.hpp polygons.cpp polygons.hpp keybinds.cpp keybinds.hpp shaders/loadShaders.cpp shaders/loadShaders.hpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=toe
