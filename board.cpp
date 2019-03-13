@@ -145,6 +145,9 @@ void Board::remove(int x, int y, int z, int w) {
 	clearRecs();
 	board[x][y][z][w].state = CellState::EMPTY;
 }
+void Board::remove(std::array<int, 4> &move) {
+	remove(move[0], move[1], move[2], move[3]);
+}
 
 int Board::possibleKeysMark(Turn turn, bool mark, Turn markTurn, CellState::State markState, int layer) {
 	// if trap already confirmed, skip

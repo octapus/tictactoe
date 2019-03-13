@@ -395,10 +395,12 @@ float recommend_keys() {
 	recommendation = result;
 	return result;
 }
+// Best move if win/block possible with depth 1. Returns number of those that are possible
 int automove(std::array<int, 4> *result) {
 	board.clearRecs();
 
 	int possible_moves;
+	// Will recommend best possible move due to short circuit eval
 	if((possible_moves = board.possibleKeys(turn, true, 0))
 			|| (possible_moves = board.possibleBlocks(turn, true, 0))
 			|| (possible_moves = board.possibleKeys(turn, true, 1))
@@ -427,6 +429,7 @@ int automove(std::array<int, 4> *result) {
 	recommend_keys();
 	return 0;
 }
+// Random move. Returns number of times move had to change due to overlap.
 int randmove(std::array<int, 4> *result) {
 	int x = rand() % 3;
 	int y = rand() % 3;
@@ -443,6 +446,71 @@ int randmove(std::array<int, 4> *result) {
 
 	if(result != nullptr) *result = { x, y, z, w };
 	return 81 - counter;
+}
+// Automoves if possible. Otherwise predicts depth moves ahead
+int rand_predictmove(std::array<int, 4> *result, int depth) {
+	if(automove(result)) {
+		return 1;
+	}
+
+	Turn org_turn = turn;
+	std::vector<std::array<int, 4>> prospective_moves;
+	int best = -1;
+	int best_len = 100;
+	int return_val = 0;
+	for(int x = 0; x < 3; ++x) {
+		for(int y = 0; y < 3; ++y) {
+			for(int z = 0; z < 3; ++z) {
+				for(int w = 0; w < 3; ++w) {
+					if(board.get(x, y, z, w).state != CellState::PLACE) {
+						turn = org_turn;
+						board.move(x, y, z, w, turn);
+						prospective_moves.push_back({x, y, z, w});
+						turnCycle();
+						std::array<int, 4> next;
+						for(int i = 1; i <= depth && !(best == 2 && i >= best_len); ++i) {
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			draw_board_background();
+			draw_specific_moves(X);
+			draw_specific_moves(O);
+
+			glfwSwapBuffers(window);
+							if(automove(&next) || randmove(&next)) {
+								if(board.possibleKeys(turn, false, 0)) {
+									if(turn == org_turn) {
+										*result = {x, y, z, w};
+										return_val = 100 + i;
+										best = 2;
+										best_len = i;
+									}
+									break;
+								} else if(board.possibleKeys(turn, false, 1)) {
+									if(turn == org_turn && best < 2) {
+										*result = {x, y, z, w};
+										return_val = i;
+										best = 1;
+									}
+								}
+								board.move(next, turn);
+								prospective_moves.push_back(next);
+								turnCycle();
+							} else {
+								*result = {x, y, z, w};
+								return_val = -i;
+								best = 0;
+								break;
+							}
+						}
+						for(std::array<int, 4> move : prospective_moves) board.remove(move);
+						turn = org_turn;
+					}
+				}
+			}
+		}
+	}
+
+	return return_val;
 }
 
 void undo() {
@@ -560,7 +628,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if(!won) {
 					if(key == AUTOMOVE_SINGLE) {
 						std::array<int, 4> move;
-						if(automove(&move) || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
+						int pred;
+						printf("%c rand: %d\n", turn == X ? 'X' : 'O', (pred = rand_predictmove(&move, 15)));
+						if(pred || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
 							place_move(move);
 						}
 					} else if(keybinds.find(key) != keybinds.end()) {
