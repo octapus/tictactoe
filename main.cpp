@@ -66,7 +66,7 @@ bool key_1_recommend = false, block_1_recommend = false;
 bool focus_recommend = false;
 float recommendation = 0;
 
-bool automove_cont = false;
+int automove_cont = 0;
 
 GLFWwindow *window;
 unsigned int BOARD_VAO, BOARD_VBO; // board
@@ -476,6 +476,8 @@ int rand_predictmove(std::array<int, 4> *result, int depth) {
 						turnCycle();
 						std::array<int, 4> next;
 						for(int i = 1; i <= depth && !(best == 2 && i >= best_len); ++i) {
+							if(!calculating_move) break; // abort if automove cancelled
+
 							if(automove(&next) || randmove(&next)) {
 								if(board.possibleKeys(turn, false, 0)) {
 									if(turn == org_turn) {
@@ -504,6 +506,8 @@ int rand_predictmove(std::array<int, 4> *result, int depth) {
 						}
 						for(std::array<int, 4> move : prospective_moves) board.remove(move);
 						turn = org_turn;
+
+						if(!calculating_move) return 0; // abort if automove cancelled
 					}
 				}
 			}
@@ -514,6 +518,10 @@ int rand_predictmove(std::array<int, 4> *result, int depth) {
 }
 
 void undo() {
+	if(calculating_move) {
+		calculating_move = false;
+		return;
+	}
 	if(moveHistoryIndex >= 0) {
 		std::array<int, 4> priorMove = moveHistory.at(moveHistoryIndex--);
 		board.remove(priorMove[0], priorMove[1], priorMove[2], priorMove[3]);
@@ -568,9 +576,8 @@ void *thread_automove() {
 	calculating_move = true;
 	std::array<int, 4> move;
 	int pred;
-	printf("Here!\n");
 	printf("%c rand: %d\n", turn == X ? 'X' : 'O', (pred = rand_predictmove(&move, 25)));
-	if(pred || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
+	if(pred || (calculating_move && randmove(&move))) { // use automove if possible, random otherwise (short circuit)
 		place_move(move);
 	}
 	calculating_move = false;
@@ -625,6 +632,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				break;
 			case AUTOMOVE_TOGGLE:
 				automove_cont = !automove_cont;
+				if(automove_cont && w == 0) {
+					automove_cont = 2;
+				}
+				printf("automove_cont: %d\n", automove_cont);
 				break;
 			case UNDO:
 				if(won) {
@@ -639,8 +650,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			default:
 				if(!won && !calculating_move) {
 					if(key == AUTOMOVE_SINGLE) {
-						std::thread t1(thread_automove);
-						t1.detach();
+						if(w == 0) {
+							std::thread t1(thread_automove);
+							t1.detach();
+						} else {
+							std::array<int, 4> move;
+							if(automove(&move) || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
+								place_move(move);
+							}
+						}
 					} else if(keybinds.find(key) != keybinds.end()) {
 						std::array<int, 3> move = keybinds[key];
 						place_move(move[0], move[1], move[2], w);
@@ -648,9 +666,14 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				}
 
 				if(!won && !calculating_move && automove_cont) {
-					std::array<int, 4> move;
-					if(automove(&move) || randmove(&move)) { // automove if possible, random otherwise (short circuit)
-						place_move(move);
+					if(automove_cont == 2) {
+						std::thread t1(thread_automove);
+						t1.detach();
+					} else {
+						std::array<int, 4> move;
+						if(automove(&move) || randmove(&move)) { // automove if possible, random otherwise (short circuit)
+							place_move(move);
+						}
 					}
 				}
 				break;
@@ -729,7 +752,11 @@ int main() {
 		quit = false;
 		won = false;
 		while(!glfwWindowShouldClose(window) && !quit) {
-			glfwWaitEvents();
+			if(!calculating_move) {
+				glfwWaitEvents();
+			} else {
+				glfwPollEvents();
+			}
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
