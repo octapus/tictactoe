@@ -43,6 +43,9 @@
 // unfocused move color *= UNFOCUSED_MOVE_DIM
 #define UNFOCUSED_MOVE_DIM 0
 
+// strong ai will think AI_DEPTH moves ahead
+#define AI_DEPTH 25
+
 // Switches turns (just in case more players are added)
 #define turnCycle() turn = (turn == X) ? O : X;
 
@@ -576,7 +579,7 @@ void *thread_automove() {
 	calculating_move = true;
 	std::array<int, 4> move;
 	int pred;
-	printf("%c rand: %d\n", turn == X ? 'X' : 'O', (pred = rand_predictmove(&move, 25)));
+	printf("%c rand: %d\n", turn == X ? 'X' : 'O', (pred = rand_predictmove(&move, AI_DEPTH)));
 	if(pred || (calculating_move && randmove(&move))) { // use automove if possible, random otherwise (short circuit)
 		place_move(move);
 	}
