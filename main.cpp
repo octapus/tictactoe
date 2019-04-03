@@ -84,7 +84,8 @@ unsigned int modelLoc, normalLoc, mvpLoc, rgbLoc, cameraLightPosLoc;
 float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
 double mouseStartX, mouseStartY, startTheta, startPhi; // for camera orbit calculations
 
-std::atomic<bool> calculating_move(false);
+std::atomic<bool> calculating_move(false); // only handle specific inputs (e.g. rotate, undo) while strong AI calculating move
+std::atomic<bool> automove_queued(false); // if manual strong AI (shift+9), automove after calculations finished if necessary
 
 // updates the View matrix to the current camera position. Does not update mvp.
 void update_view() {
@@ -575,6 +576,8 @@ int place_move(int x, int y, int z, int w) {
 int place_move(std::array<int, 4> &move) {
 	return place_move(move[0], move[1], move[2], move[3]);
 }
+
+void handle_automove_cont();
 void *thread_automove() {
 	calculating_move = true;
 	std::array<int, 4> move;
@@ -584,8 +587,27 @@ void *thread_automove() {
 		place_move(move);
 	}
 	calculating_move = false;
+
+	if(automove_queued) {
+		automove_queued = false;
+		handle_automove_cont();
+	}
 	return NULL;
 }
+void handle_automove_cont() {
+	if(!won && !calculating_move && automove_cont) {
+		if(automove_cont == 2) {
+			std::thread t1(thread_automove);
+			t1.detach();
+		} else {
+			std::array<int, 4> move;
+			if(automove(&move) || randmove(&move)) { // automove if possible, random otherwise (short circuit)
+				place_move(move);
+			}
+		}
+	}
+}
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if(action == GLFW_PRESS) {
 		switch(key) {
@@ -654,8 +676,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if(!won && !calculating_move) {
 					if(key == AUTOMOVE_SINGLE) {
 						if(w == 0) {
+							automove_queued = true;
 							std::thread t1(thread_automove);
 							t1.detach();
+							break; // thread_automove handles automove_cont
 						} else {
 							std::array<int, 4> move;
 							if(automove(&move) || randmove(&move)) { // use automove if possible, random otherwise (short circuit)
@@ -666,19 +690,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 						std::array<int, 3> move = keybinds[key];
 						place_move(move[0], move[1], move[2], w);
 					}
+
+					handle_automove_cont();
 				}
 
-				if(!won && !calculating_move && automove_cont) {
-					if(automove_cont == 2) {
-						std::thread t1(thread_automove);
-						t1.detach();
-					} else {
-						std::array<int, 4> move;
-						if(automove(&move) || randmove(&move)) { // automove if possible, random otherwise (short circuit)
-							place_move(move);
-						}
-					}
-				}
 				break;
 		}
 	} else if(action == GLFW_RELEASE) {
