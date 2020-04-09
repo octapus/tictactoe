@@ -4,6 +4,8 @@
 #include "polygons.hpp"
 #include "keybinds.hpp"
 
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/vector_float3.hpp>
 #include<glm/glm.hpp>
 #include<glm/gtc/matrix_transform.hpp>
 #include<glm/gtc/type_ptr.hpp>
@@ -18,7 +20,7 @@
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 800
 
-#define PAN_SPEED 0.003f
+#define PAN_SPEED 2.0f
 #define ZOOM_SPEED 0.1
 
 // brightness values after win. FOCUS_RECOMMEND (LEFT_CTRL) to dim non-win moves.
@@ -81,23 +83,23 @@ glm::mat4 Model, View, Projection, mvp;
 glm::mat3 Normal;
 unsigned int modelLoc, normalLoc, mvpLoc, rgbLoc, cameraLightPosLoc;
 
-float theta, phi, radius; // theta on xz plane, 0 at +x. phi on y axis, 0 is horizontal (on xz plane)
-double mouseStartX, mouseStartY, startTheta, startPhi; // for camera orbit calculations
+// for camera orbit calculations
+unsigned int curr_screen_width, curr_screen_height;
+glm::vec3 camera_start, camera_pos, camera_up;
+float camera_radius;
+bool arcball_on = false;
 
 std::atomic<bool> calculating_move(false); // only handle specific inputs (e.g. rotate, undo) while strong AI calculating move
 std::atomic<bool> automove_queued(false); // if manual strong AI (shift+9), automove after calculations finished if necessary
 
 // updates the View matrix to the current camera position. Does not update mvp.
 void update_view() {
-	float cameraX = radius * cos(theta) * cos(phi);
-	float cameraY = radius * sin(phi);
-	float cameraZ = radius * sin(theta) * cos(phi);
 	View = glm::lookAt(
-			glm::vec3(cameraX, cameraY, cameraZ), // camera pos
+			camera_radius * camera_pos, // camera pos
 			glm::vec3(0, 0, 0), // looking at origin
-			glm::vec3(0, 1, 0) // +y is up
+			camera_up
 			);
-	update_camera_light_pos(cameraX, cameraY, cameraZ);
+	update_camera_light_pos(camera_radius * camera_pos.x, camera_radius * camera_pos.y, camera_radius * camera_pos.z);
 }
 
 // updates the mvp matrix and related values and sends them to the gpu.
@@ -111,14 +113,9 @@ void update_mvp() {
 }
 
 void reset_camera() {
-	theta = M_PI/2;
-	phi = 0;
-	radius = 4;
-
-	mouseStartX = -1;
-	mouseStartY = -1;
-	startPhi = phi;
-	startTheta = theta;
+	camera_pos = glm::vec3(0, 0, 1);
+	camera_up = glm::vec3(0, 1, 0);
+	camera_radius = 4;
 }
 
 bool init() {
@@ -713,39 +710,49 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 }
 
+// convert a coordinate onscreen to a vector in model space
+void get_arcball_vector(float x, float y, glm::vec3 &P) {
+	glm::vec3 camera_right = glm::cross(camera_up, camera_pos);
+	P = camera_pos + ((2*x/curr_screen_width - 1) * camera_right) + ((-2*y/curr_screen_height + 1) * camera_up);
+	P = glm::normalize(P);
+}
 void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
-	if(mouseStartX >= 0 && mouseStartY >= 0) {
-		theta = (xpos - mouseStartX) * PAN_SPEED + startTheta;
-		phi = (ypos - mouseStartY) * PAN_SPEED + startPhi;
+	if(arcball_on) {
+		glm::vec3 mouse_pos;
+		get_arcball_vector(xpos, ypos, mouse_pos);
+		float angle = PAN_SPEED * acos(fmin(1.0f, glm::dot(camera_start, mouse_pos)));
+		glm::vec3 axis = glm::cross(mouse_pos, camera_start);
+		glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), angle, axis);
 
-		// when phi hits pi everything flips, so stop it from ocurring
-		if(phi > M_PI/2.01) phi = M_PI/2.01;
-		if(phi < -M_PI/2.01) phi = -M_PI/2.01;
+		camera_pos = glm::vec3(rotation * glm::vec4(camera_pos, 1.0f));
+		camera_up = glm::vec3(rotation * glm::vec4(camera_up, 1.0f));
 
+		get_arcball_vector(xpos, ypos, camera_start);
 		update_view();
 		update_mvp();
 	}
 }
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
 	if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		glfwGetCursorPos(window, &mouseStartX, &mouseStartY);
+		double x, y;
+		glfwGetCursorPos(window, &x, &y);
+		get_arcball_vector(x, y, camera_start);
+		arcball_on = true;
 		return;
 	}
 
-	mouseStartX = -1;
-	mouseStartY = -1;
-	startTheta = theta;
-	startPhi = phi;
+	arcball_on = false;
 }
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-	radius += yoffset * ZOOM_SPEED;
-	if(radius < 0) radius = 0.01;
+	camera_radius *= 1 + yoffset * ZOOM_SPEED;
 	update_view();
 	update_mvp();
 }
 
 void window_size_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
+	curr_screen_width = width;
+	curr_screen_height = height;
 	Projection = glm::perspective(glm::radians(45.0f), float(width)/float(height), 0.1f, 100.0f);
 	update_mvp();
 }
