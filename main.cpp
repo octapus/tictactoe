@@ -654,9 +654,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				break;
 			case AUTOMOVE_TOGGLE:
 				automove_cont = !automove_cont;
+				/*
 				if(automove_cont && w == 0) {
 					automove_cont = 2;
 				}
+				*/
 				printf("automove_cont: %d\n", automove_cont);
 				break;
 			case UNDO:

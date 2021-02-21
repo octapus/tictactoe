@@ -8,12 +8,11 @@
 4. A win occurs when a three in a row occurs twice in one move. The board will maintain the color of the winning move.
 5. 1-4 to enable move recommendations. Left ctrl to highlight recommendations and/or wins.
 6. 9 to let the AI move for you. 0 to have the AI play against you.
-7. left_shift+9/0 to have the AI think really hard when it's moving. It shouldn't take more than 1 minute though, unless your computer's really slow.
-8. Press escape to quit. More keybindings can be found in `keybinds.cpp` and `keybinds.hpp`.
+7. Press escape to quit. More keybindings can be found in `keybinds.cpp` and `keybinds.hpp`.
 
 ### Installation
 Dependencies: opengl, glew, glfw.  
-Clone the repositiory and run `make all` in the directory. This should compile the code, creating some object files (ending in `.o`) and an executable named `toe`, which can be run to play the game.  
+Clone the repositiory and run `make all` in the directory. This will create an executable named `toe`, which can be run to play the game.  
 
 ### Example wins
 X wins with final move green center top right (Y)  
