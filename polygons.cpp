@@ -4,6 +4,7 @@
 
 #include<glm/glm.hpp>
 #include<glm/gtc/matrix_transform.hpp>
+#include<iostream>
 
 // A rectangular prism of length/width 2*LINE_RADIUS and height 2 centered on the origin
 const GLfloat line_vertices[] = {
